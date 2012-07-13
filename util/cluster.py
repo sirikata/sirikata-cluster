@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import config, data
+import config, data, arguments
 from boto.ec2.connection import EC2Connection
 import json, os
 
@@ -50,14 +50,8 @@ def create(*args, **kwargs):
     Create a new cluster. This just creates a record of the cluster
     and saves its properties, it doesn't actually allocate any nodes.
     """
-    # Get parameters
-    if len(args) != 4: # name size puppet_master keypair
-        print "Incorrect parameters to create cluster."""
-        exit(1)
-    name = args[0]
-    size = int(args[1])
-    puppet_master = args[2]
-    keypair = args[3]
+
+    name, size, puppet_master, keypair = arguments.parse_or_die('cluster create', [str, int, str, str], *args)
 
     instance_type = config.kwarg_or_get('instance-type', kwargs, 'INSTANCE_TYPE')
     group = config.kwarg_or_get('group', kwargs, 'SECURITY_GROUP')
@@ -75,12 +69,8 @@ def boot(*args, **kwargs):
 
     Boot a cluster's nodes.
     """
-    # Get parameters
-    if len(args) != 1: # name
-        print "Incorrect parameters to cluster boot."""
-        exit(1)
-    name = args[0]
 
+    name = arguments.parse_or_die('cluster nodes boot', [str], *args)
     cc = ClusterConfigFile(name)
 
     if 'reservation' in cc.state or 'instances' in cc.state:
@@ -116,12 +106,8 @@ def members_address(*args, **kwargs):
     members in a corosync configuration (which you'll do through
     puppet).
     """
-    # Get parameters
-    if len(args) != 1: # name
-        print "Incorrect parameters to cluster members address list."""
-        exit(1)
-    name = args[0]
 
+    name = arguments.parse_or_die('cluster members address list', [str], *args)
     cc = ClusterConfigFile(name)
 
     if 'reservation' not in cc.state or 'instances' not in cc.state:
@@ -163,14 +149,8 @@ def node_ssh(*args, **kwargs):
 
     Spawn an SSH process that SSHs into the node
     """
-    # Get parameters
-    if len(args) != 3: # name, index, pemfile
-        print "Incorrect parameters to cluster node ssh."""
-        exit(1)
-    name = args[0]
-    idx = int(args[1])
-    pemfile = args[2]
 
+    name, idx, pemfile = arguments.parse_or_die('cluster node ssh', [str, int, str], *args)
     cc = ClusterConfigFile(name)
 
     if 'reservation' not in cc.state or 'instances' not in cc.state:
@@ -190,10 +170,8 @@ def terminate(*args, **kwargs):
 
     Terminate an existing cluster
     """
-    if len(args) != 1: # name
-        print "Incorrect parameters to cluster boot."""
-        exit(1)
-    name = args[0]
+
+    name = arguments.parse_or_die('cluster nodes terminate', [str], *args)
 
     cc = ClusterConfigFile(name)
     if 'instances' not in cc.state:
@@ -220,10 +198,7 @@ def destroy(*args, **kwargs):
     Terminate an existing cluster
     """
 
-    if len(args) != 1: # name
-        print "Incorrect parameters to cluster boot."""
-        exit(1)
-    name = args[0]
+    name = arguments.parse_or_die('cluster nodes terminate', [str], *args)
 
     cc = ClusterConfigFile(name)
     if 'reservation' in cc.state or 'instances' in cc.state:
