@@ -74,8 +74,18 @@ if command not in handlers:
 # Split remaining args as positional and keyword
 pargs = []
 kwargs = {}
+more_kwargs = True
 for arg in args:
-    if '=' in arg or arg.startswith('--'):
+    # Allows you to stop us from parsing kwargs, leaving them as
+    # positional arguments so that when a command is passed along to a
+    # subprocess (e.g. ssh) it can just be specified as additional
+    # arguments even if the subcommand has --key=value type
+    # arguments. We only accept this once so you can 'escape' it if
+    # your subcommand *also* needs '--' in it.
+    if arg == '--' and more_kwargs:
+        more_kwargs = False
+        continue
+    if more_kwargs and '=' in arg or arg.startswith('--'):
         if '=' in arg:
             k,v = arg.split('=', 1)
         else:
