@@ -69,11 +69,11 @@ actually created any nodes yet.
 
 For that, just ask for the nodes to be booted:
 
-    ./sirikata-cluster.py cluster boot nodes mycluster
+    ./sirikata-cluster.py cluster nodes boot mycluster
 
 When you're done with the nodes, terminate them:
 
-    ./sirikata-cluster.py cluster terminate nodes mycluster
+    ./sirikata-cluster.py cluster nodes terminate mycluster
 
 You could revive the cluster by booting again, the cluster spec isn't
 destroyed when you terminat the nodes.

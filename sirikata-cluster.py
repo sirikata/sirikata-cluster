@@ -26,8 +26,8 @@ config.check_config()
 # Setup all our command handlers
 handlers = {
     'cluster create' : cluster.create,
-    'cluster boot nodes' : cluster.boot,
-    'cluster terminate nodes' : cluster.terminate,
+    'cluster nodes boot' : cluster.boot,
+    'cluster nodes terminate' : cluster.terminate,
     'cluster destroy' : cluster.destroy
 }
 

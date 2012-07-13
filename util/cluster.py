@@ -71,7 +71,7 @@ def create(*args, **kwargs):
     cc.save()
 
 def boot(*args, **kwargs):
-    """cluster boot nodes name
+    """cluster nodes boot name
 
     Boot a cluster's nodes.
     """
@@ -102,15 +102,15 @@ def boot(*args, **kwargs):
                                      )
 
     # Save reservation, instance info
-    cc.data['reservation'] = reservation.id
-    cc.data['instances'] = [inst.id for inst in reservation.instances]
+    cc.state['reservation'] = reservation.id
+    cc.state['instances'] = [inst.id for inst in reservation.instances]
 
     # Name the nodes
     for idx,inst in enumerate(reservation.instances):
         conn.create_tags([inst.id], {"Name": instance_name(name, idx)})
 
 def terminate(*args, **kwargs):
-    """cluster terminate nodes name
+    """cluster nodes terminate name
 
     Terminate an existing cluster
     """
@@ -120,21 +120,21 @@ def terminate(*args, **kwargs):
     name = args[0]
 
     cc = ClusterConfigFile(name)
-    if 'instances' not in cc.data:
+    if 'instances' not in cc.state:
         print "No active instances were found, are you sure this cluster is currently running?"
         exit(1)
 
     conn = EC2Connection(config.AWS_ACCESS_KEY_ID, config.AWS_SECRET_ACCESS_KEY)
-    terminated = conn.terminate_instances(cc.data['instances'])
+    terminated = conn.terminate_instances(cc.state['instances'])
 
-    if len(terminated) != len(cc.data['instances']):
+    if len(terminated) != len(cc.state['instances']):
         print "The set of terminated nodes doesn't match the complete set of instances, you may need to clean some up manually."
-        print "Instances:", cc.data['instances']
+        print "Instances:", cc.state['instances']
         print "Terminated Instances:", terminated
-        print "Unterminated:", list(set(cc.data['instances']).difference(set(terminated)))
+        print "Unterminated:", list(set(cc.state['instances']).difference(set(terminated)))
 
-    del cc.data['instances']
-    del cc.data['reservations']
+    del cc.state['instances']
+    del cc.state['reservations']
 
 def destroy(*args, **kwargs):
     """cluster destroy name
