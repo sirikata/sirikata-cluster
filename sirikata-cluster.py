@@ -27,6 +27,8 @@ config.check_config()
 handlers = {
     'cluster create' : cluster.create,
     'cluster nodes boot' : cluster.boot,
+    'cluster members address list' : cluster.members_address,
+    'cluster node ssh' : cluster.node_ssh,
     'cluster nodes terminate' : cluster.terminate,
     'cluster destroy' : cluster.destroy
 }

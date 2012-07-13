@@ -109,6 +109,82 @@ def boot(*args, **kwargs):
     for idx,inst in enumerate(reservation.instances):
         conn.create_tags([inst.id], {"Name": instance_name(name, idx)})
 
+def members_address(*args, **kwargs):
+    """cluster members address list cluster_name
+
+    Get a list of members addresses. This is used to seed the list of
+    members in a corosync configuration (which you'll do through
+    puppet).
+    """
+    # Get parameters
+    if len(args) != 1: # name
+        print "Incorrect parameters to cluster members address list."""
+        exit(1)
+    name = args[0]
+
+    cc = ClusterConfigFile(name)
+
+    if 'reservation' not in cc.state or 'instances' not in cc.state:
+        print "It doesn't look like you've booted the cluster yet..."
+        exit(1)
+
+    conn = EC2Connection(config.AWS_ACCESS_KEY_ID, config.AWS_SECRET_ACCESS_KEY)
+    instances_info = conn.get_all_instances(instance_ids = cc.state['instances'])
+    # Should get back a list of one reservation
+    instances_info = instances_info[0].instances
+    ips = [inst.ip_address for inst in instances_info]
+
+    corosync_conf = data.load('corosync', 'corosync.conf.template')
+    member_section = ""
+    for ip in ips:
+        member_section += """
+                member {
+                        memberaddr: %s
+                }""" % (ip)
+
+    corosync_conf = corosync_conf.replace('{{{MEMBERS}}}', member_section)
+    data.save(corosync_conf, 'puppet', 'templates', 'corosync.conf')
+
+    print
+    print "These are the addresses I found:", ips
+    print """
+I've generated a configuration template that Puppet needs to use to
+configure clients. I've saved it in
+data/puppet/templates/corosync.conf. You need to put it into your
+Puppet master's configuration
+directory. If you're running the Puppet master locally, run
+
+  sudo cp data/puppet/templates/corosync.conf /etc/puppet/templates/corosync.conf
+
+"""
+
+def node_ssh(*args, **kwargs):
+    """cluster node ssh name cluster_name index pemfile
+
+    Spawn an SSH process that SSHs into the node
+    """
+    # Get parameters
+    if len(args) != 3: # name, index, pemfile
+        print "Incorrect parameters to cluster node ssh."""
+        exit(1)
+    name = args[0]
+    idx = int(args[1])
+    pemfile = args[2]
+
+    cc = ClusterConfigFile(name)
+
+    if 'reservation' not in cc.state or 'instances' not in cc.state:
+        print "It doesn't look like you've booted the cluster yet..."
+        exit(1)
+
+    conn = EC2Connection(config.AWS_ACCESS_KEY_ID, config.AWS_SECRET_ACCESS_KEY)
+    instances_info = conn.get_all_instances(instance_ids = [ cc.state['instances'][idx] ])
+    # Should get back a list of one reservation with one instance in it
+    instance_info = instances_info[0].instances[0]
+    pub_dns_name = instance_info.public_dns_name
+
+    cmd = os.execl("/usr/bin/ssh", "ssh", "-i", pemfile, "ubuntu@" + pub_dns_name)
+
 def terminate(*args, **kwargs):
     """cluster nodes terminate name
 
@@ -134,7 +210,9 @@ def terminate(*args, **kwargs):
         print "Unterminated:", list(set(cc.state['instances']).difference(set(terminated)))
 
     del cc.state['instances']
-    del cc.state['reservations']
+    del cc.state['reservation']
+
+    cc.save()
 
 def destroy(*args, **kwargs):
     """cluster destroy name

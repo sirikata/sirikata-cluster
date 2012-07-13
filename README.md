@@ -32,6 +32,7 @@ this:
   cluster. Helper scripts are aware of the specifics of Sirikata to
   make adding services simpler.
 
+
 Installation
 ------------
 
@@ -41,6 +42,7 @@ Ubuntu:
     sudo apt-get install python python-pip
     sudo pip install -U boto
 
+
 Configuration
 -------------
 
@@ -49,6 +51,43 @@ much like AWS scripts. A few values are required for EC2 API access:
 
 * AWS_ACCESS_KEY_ID
 * AWS_SECRET_ACCESS_KEY
+
+
+Puppet Master Configuration
+---------------------------
+
+You'll need to do some Puppet master node setup. You want to do this
+and have the master ready before starting any nodes. Make sure you
+have Puppet installed. Then, copy the config files into place:
+
+    sudo cp -r data/puppet/* /etc/puppet/
+
+Note that you may also need to adjust your /etc/puppet/fileserver.conf
+to allow loading files from the agent nodes. The data is under
+/etc/puppet/files and you should enable access in the [files] section,
+e.g. for a complete whitelist add the line
+
+    allow 0.0.0.0/0
+
+
+Corosync One-time Configuration
+-------------------------------
+
+You'll also need to setup an authkey for corosync. All nodes need to
+use the same key -- they just check it to make sure they're talking to
+who they are supposed to be talking to. You need to generate the key
+manually:
+
+    sudo corosync-keygen
+
+which will leave it in /etc/corosync/authkey. We're going to copy it
+to the nodes automatically, we just need to deposit it in the right
+location:
+
+    mkdir -p /etc/puppet/files/etc/corosync
+    cp /etc/corosync/authkey /etc/puppet/files/etc/corosync/
+
+
 
 Clusters
 --------
@@ -70,6 +109,36 @@ actually created any nodes yet.
 For that, just ask for the nodes to be booted:
 
     ./sirikata-cluster.py cluster nodes boot mycluster
+
+While they're active, you can get an ssh prompt into one of the nodes:
+
+    ./sirikata-cluster.py cluster nodes ssh mycluster 1 my_ec2_ssh_key.pem
+
+where the number is the node index (starting at 0) and the pem file is
+the key pair file corresponding to the key pair name you specified in
+the creation stage for ssh access.
+
+
+Unfortunately, because the version of corosync available, the nodes
+can't just figure out which other nodes are available by
+themselves. We need to provide each node with a list. After th enodes
+have booted, we can do:
+
+    ./sirikata-cluster.py cluster members address list mycluster
+
+The output of this is an updated configuration file that Puppet needs
+to distribute to the nodes. We can get it into place with:
+
+    sudo cp data/puppet/templates/corosync.conf /etc/puppet/templates/corosync.conf
+
+but unfortunately we have to manually log into each of the nodes and
+force their puppet agents to update:
+
+    # On each node
+    sudo /etc/init.d/puppet restart
+
+At this point, you should have the nodes ready for executing pacemaker
+resources (i.e. services).
 
 When you're done with the nodes, terminate them:
 

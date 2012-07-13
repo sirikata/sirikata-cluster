@@ -14,3 +14,7 @@ def path(*args):
 def load(*args):
     with open(path(*args), 'rb') as fp:
         return fp.read()
+
+def save(data, *args):
+    with open(path(*args), 'wb') as fp:
+        return fp.write(data)
