@@ -70,13 +70,14 @@ def master_config(*args, **kwargs):
     subprocess.call(['sudo', 'service', 'puppetmaster', 'restart'])
 
 def slaves_restart(*args, **kwargs):
-    """puppet slaves restart cluster_name pemfile
+    """puppet slaves restart cluster_name [--pem=/path/to/key.pem]
 
     Restart puppet on a slave node. This is useful to force it to
     reconfigure itself since Puppet doesn't seem to have a good way of
     kicking all slaves to reconfigure and re-run their settings.
     """
 
-    name, pemfile = arguments.parse_or_die('puppet slaves restart', [str, str], *args)
+    name = arguments.parse_or_die('puppet slaves restart', [str], *args)
+    pemfile = os.path.expanduser(config.kwarg_or_get('pem', kwargs, 'SIRIKATA_CLUSTER_PEMFILE'))
 
-    cluster.ssh(name, pemfile, 'sudo', 'service', 'puppet', 'restart')
+    cluster.ssh(name, 'sudo', 'service', 'puppet', 'restart', pem=pemfile)

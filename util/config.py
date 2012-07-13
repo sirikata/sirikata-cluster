@@ -8,9 +8,11 @@ _config_names = [
     'AWS_ACCESS_KEY_ID',
     'AWS_SECRET_ACCESS_KEY',
 
-    'BASE_AMI' # base AMI used for installation
-    'INSTANCE_TYPE' # instance type, e.g. t1.micro
-    'SECURITY_GROUP' # EC2 security group, affects firewall settings
+    'BASE_AMI', # base AMI used for installation
+    'INSTANCE_TYPE', # instance type, e.g. t1.micro
+    'SECURITY_GROUP', # EC2 security group, affects firewall settings
+
+    'SIRIKATA_CLUSTER_PEMFILE' # pemfile key for ssh'ing into nodes
 ]
 _required_config_names = [
     'AWS_ACCESS_KEY_ID',
