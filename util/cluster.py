@@ -94,6 +94,7 @@ def boot(*args, **kwargs):
     # Save reservation, instance info
     cc.state['reservation'] = reservation.id
     cc.state['instances'] = [inst.id for inst in reservation.instances]
+    cc.save()
 
     # Name the nodes
     for idx,inst in enumerate(reservation.instances):
@@ -145,12 +146,12 @@ directory. If you're running the Puppet master locally, run
 """
 
 def node_ssh(*args, **kwargs):
-    """cluster node ssh name cluster_name index pemfile
+    """cluster node ssh cluster_name index pemfile [optional additional arguments give command just like with real ssh]
 
     Spawn an SSH process that SSHs into the node
     """
 
-    name, idx, pemfile = arguments.parse_or_die('cluster node ssh', [str, int, str], *args)
+    name, idx, pemfile, remote_cmd = arguments.parse_or_die('cluster node ssh', [str, int, str], rest=True, *args)
     cc = ClusterConfigFile(name)
 
     if 'reservation' not in cc.state or 'instances' not in cc.state:
@@ -163,7 +164,48 @@ def node_ssh(*args, **kwargs):
     instance_info = instances_info[0].instances[0]
     pub_dns_name = instance_info.public_dns_name
 
-    cmd = os.execl("/usr/bin/ssh", "ssh", "-i", pemfile, "ubuntu@" + pub_dns_name)
+    cmd = ["ssh", "-i", pemfile, "ubuntu@" + pub_dns_name] + list(remote_cmd)
+    os.execv("/usr/bin/ssh", cmd)
+
+
+def ssh(*args, **kwargs):
+    """cluster ssh cluster_name pemfile [required additional arguments give command just like with real ssh]
+
+    Run an SSH command on every node in the cluster. Note that this
+    currently doesn't parallelize at all, so it can be a bit
+    slow. This won't do ssh sessions -- you *must* provide a command
+    to execute.
+    """
+
+    name, pemfile, remote_cmd = arguments.parse_or_die('cluster ssh', [str, str], rest=True, *args)
+    if not remote_cmd:
+        print "You need to add a command to execute across all the nodes."
+        exit(1)
+
+    cc = ClusterConfigFile(name)
+    for inst_idx in range(len(cc.state['instances'])):
+        node_ssh(name, inst_idx, pemfile, *remote_cmd)
+
+
+def fix_corosync(*args, **kwargs):
+    """cluster fix corosync cluster_name pemfile
+
+    Fix the corosync configuration to use the set of nodes that have
+    now booted up.
+    """
+
+    name, pemfile = arguments.parse_or_die('cluster ssh', [str, str], *args)
+
+    # Sequence is:
+    # 1. Get the updated list of nodes and generate configuration
+    members_address(name)
+    # 2. Update our local puppet master
+    puppet.master_config('--yes')
+    # 3. Restart slave puppets, making them pick up the new config and
+    # restart corosync
+    puppet.slaves_restart(name, pemfile)
+    # 4. Get one node to turn stonith-enabled off
+    node_ssh(name, 0, pemfile, 'sudo', 'crm', 'configure', 'property', 'stonith-enabled=false')
 
 def terminate(*args, **kwargs):
     """cluster nodes terminate name

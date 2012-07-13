@@ -30,10 +30,13 @@ handlers = {
     'cluster nodes boot' : cluster.boot,
     'cluster members address list' : cluster.members_address,
     'cluster node ssh' : cluster.node_ssh,
+    'cluster ssh' : cluster.ssh,
+    'cluster fix corosync' : cluster.fix_corosync,
     'cluster nodes terminate' : cluster.terminate,
     'cluster destroy' : cluster.destroy,
 
-    'puppet master config' : puppet.master_config
+    'puppet master config' : puppet.master_config,
+    'puppet slaves restart' : puppet.slaves_restart
 }
 
 def usage(code=1):

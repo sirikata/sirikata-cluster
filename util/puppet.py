@@ -1,10 +1,14 @@
 #!/usr/bin/env python
 
 import config, data, arguments, cluster
-import os.path, subprocess
+import os.path, subprocess, sys
+
+# This is gross, but addresses the run-time circular dependency
+# between cluster.py and puppet.py
+setattr(cluster, 'puppet', sys.modules[__name__])
 
 def master_config(*args, **kwargs):
-    """puppet master reconfig [--path=/etc/puppet/] [--yes]
+    """puppet master config [--path=/etc/puppet/] [--yes]
 
     Configure (or reconfigure) a local puppet master based on the data
     generated so far. This can be used for the initial setup of the
@@ -64,3 +68,15 @@ def master_config(*args, **kwargs):
     # And restart the puppet master
     print "Restarting puppetmaster"
     subprocess.call(['sudo', 'service', 'puppetmaster', 'restart'])
+
+def slaves_restart(*args, **kwargs):
+    """puppet slaves restart cluster_name pemfile
+
+    Restart puppet on a slave node. This is useful to force it to
+    reconfigure itself since Puppet doesn't seem to have a good way of
+    kicking all slaves to reconfigure and re-run their settings.
+    """
+
+    name, pemfile = arguments.parse_or_die('puppet slaves restart', [str, str], *args)
+
+    cluster.ssh(name, pemfile, 'sudo', 'service', 'puppet', 'restart')

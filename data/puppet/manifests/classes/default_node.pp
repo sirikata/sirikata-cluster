@@ -48,7 +48,8 @@ class default_node {
   service { 'pacemaker':
     ensure => running,
     enable => true,
-    require => Package['pacemaker'],
+    require => [ Package['pacemaker'], Service['corosync'] ],
+    subscribe => Service['corosync'], # Restart after corosync restarts
   }
 
   # STONITH settings that are there by default cause problems, disable

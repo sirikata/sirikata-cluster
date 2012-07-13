@@ -107,7 +107,7 @@ For that, just ask for the nodes to be booted:
 
 While they're active, you can get an ssh prompt into one of the nodes:
 
-    ./sirikata-cluster.py cluster nodes ssh mycluster 1 my_ec2_ssh_key.pem
+    ./sirikata-cluster.py cluster node ssh mycluster 1 my_ec2_ssh_key.pem
 
 where the number is the node index (starting at 0) and the pem file is
 the key pair file corresponding to the key pair name you specified in
@@ -116,22 +116,19 @@ the creation stage for ssh access.
 
 Unfortunately, because the version of corosync available, the nodes
 can't just figure out which other nodes are available by
-themselves. We need to provide each node with a list. After th enodes
-have booted, we can do:
+themselves. We need to provide each node with a list. There are a
+couple of steps involved -- getting the list of addresses, updating
+the puppet master config, and forcing all the nodes to re-run their
+puppet configurations. Once the puppet configurations are updated,
+they take care of updating corosync and restarting it. Finally, there
+is one more modification which needs to be run on one of the nodes to
+make the cluster usable (stonith-enabled=false). We've wrapped this
+whole process into a single command (you can look at the code to see
+the individual steps):
 
-    ./sirikata-cluster.py cluster members address list mycluster
+    ./sirikata-cluster.py cluster fix corosync mycluster my_ec2_ssh_key.pem
 
-The output of this is an updated configuration file that Puppet needs
-to distribute to the nodes. We can get it into place with:
-
-    sudo cp data/puppet/templates/corosync.conf /etc/puppet/templates/corosync.conf
-
-but unfortunately we have to manually log into each of the nodes and
-force their puppet agents to update:
-
-    # On each node
-    sudo /etc/init.d/puppet restart
-
+(Note that this assumes a local puppet master in the default location).
 At this point, you should have the nodes ready for executing pacemaker
 resources (i.e. services).
 
