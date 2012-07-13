@@ -30,7 +30,7 @@ logging {
 
 quorum {
         provider: corosync_votequorum
-        expected_votes: 2
+{{{QUORUM_MEMBERS}}}
 }
 
 service {

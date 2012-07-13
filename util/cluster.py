@@ -128,8 +128,19 @@ def members_address(*args, **kwargs):
                 member {
                         memberaddr: %s
                 }""" % (ip)
+    quorum_member_section = """
+                nodelist {"""
+    for idx,ip in enumerate(ips):
+        quorum_member_section += """
+                        node {
+                                ring0_addr: %s
+                                nodeid: %d
+                        }""" % (ip, idx)
+    quorum_member_section = """
+                }"""
 
     corosync_conf = corosync_conf.replace('{{{MEMBERS}}}', member_section)
+    corosync_conf = corosync_conf.replace('{{{QUORUM_MEMBERS}}}', quorum_member_section)
     data.save(corosync_conf, 'puppet', 'templates', 'corosync.conf')
 
     print
