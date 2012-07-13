@@ -26,6 +26,7 @@ config.check_config()
 
 # Setup all our command handlers
 handlers = {
+    'cluster security create' : cluster.create_security_group,
     'cluster create' : cluster.create,
     'cluster nodes boot' : cluster.boot,
     'cluster members address list' : cluster.members_address,

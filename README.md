@@ -91,7 +91,19 @@ This script isolates different clusters by using unique,
 human-readable names for each cluster, e.g. 'myworld'. All commands
 will take the cluster name as part of the command.
 
-You can create a cluster specification:
+
+First, you'll need a security group to allocate nodes under which has
+the appropriate settings. You can do this manually, but a simple (but
+relatively less secured) default configuration will work for a
+Sirikata cluster:
+
+    ./sirikata-cluster.py cluster security create "sirikata-cluster" "Cluster deployment of Sirikata including Corosync/Pacemaker and Puppet"
+
+This command is useful since there are a few extra ports these scripts
+require for puppet, corosync, and pacemaker. It also opens up SSH and
+a range of ports commonly used by Sirikata.
+
+Next, you can create a cluster specification:
 
     ./sirikata-cluster.py cluster create mycluster 2 ahoy.stanford.edu my_key_pair --instance-type=t1.micro --group=default --ami=ami-82fa58eb
 

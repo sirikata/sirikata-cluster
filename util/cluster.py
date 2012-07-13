@@ -44,6 +44,63 @@ class ClusterConfigFile(object):
         os.remove(self._filename())
 
 
+def create_security_group(*args, **kwargs):
+    """cluster security create security_group_name security_group_description
+
+    Create a new security group with settings reasonable for a
+    Sirikata cluster -- ssh access, corosync and puppet ports open,
+    ICMP enabled, and a range of ports commonly used by Sirikata open
+    to TCP (7000 - 10000).
+
+    Note that you really only need one of these unless you want to
+    customize something -- multiple clusters can use the same security
+    group.
+
+    This security group is relatively lax, opening ports to more
+    sources than really necessary and opening more ports than
+    necessary to cover different ports that might be used by differen
+    Sirikata deployments. Ideally you'd create one customized for your
+    deployment, but this is a good starting point.
+    """
+
+    group_name, group_desc = arguments.parse_or_die('cluster security create', [str, str], *args)
+
+    conn = EC2Connection(config.AWS_ACCESS_KEY_ID, config.AWS_SECRET_ACCESS_KEY)
+    # We may already have a security group with this name that needs updating
+    sgs = conn.get_all_security_groups()
+    matches = [sg for sg in sgs if sg.name == group_name]
+    sg = None
+    if len(matches) == 1:
+        sg = matches[0]
+    else:
+        sg = conn.create_security_group(group_name, group_desc)
+
+    def ensure_rule(ip_protocol=None, from_port=None, to_port=None, cidr_ip=None, src_group=None):
+        '''Makes sure a rule exists, only sending the authorize request if it isn't already present'''
+        if src_group is not None:
+            if not any([ ((src_group.name + '-' + src_group.owner_id) in [str(g) for g in rule.grants]) for rule in sg.rules]):
+                sg.authorize(src_group=src_group)
+            return
+
+        if not any([ (rule.ip_protocol == unicode(ip_protocol) and rule.from_port == unicode(from_port) and rule.to_port == unicode(to_port) and unicode(cidr_ip) in [str(g) for g in rule.grants]) for rule in sg.rules]):
+            sg.authorize(ip_protocol, from_port, to_port, cidr_ip)
+
+    # Ping etc: ICMP all
+    ensure_rule('icmp', -1, -1, '0.0.0.0/0')
+    # SSH: TCP 22
+    ensure_rule('tcp', 22, 22, '0.0.0.0/0')
+    # Corosync: TCP + UDP 5405
+    ensure_rule('tcp', 5405, 5405, '0.0.0.0/0')
+    ensure_rule('udp', 5405, 5405, '0.0.0.0/0')
+    # Puppet: TCP 8139
+    ensure_rule('tcp', 8139, 8139, '0.0.0.0/0')
+    # Sirikata: TCP 7000-10000
+    ensure_rule('tcp', 7000, 10000, '0.0.0.0/0')
+
+    # Also add the node itself as having complete access
+    ensure_rule(src_group=sg)
+
+
 def create(*args, **kwargs):
     """cluster create name size puppet_master keypair [--instance-type=t1.micro] [--group=security_group] [--ami=i-x7395]
 
