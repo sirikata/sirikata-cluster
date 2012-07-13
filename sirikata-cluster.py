@@ -15,6 +15,7 @@ except:
 
 import util.config as config
 import util.cluster as cluster
+import util.puppet as puppet
 import sys
 
 # Parse config options, currently only from the environment variables
@@ -30,7 +31,9 @@ handlers = {
     'cluster members address list' : cluster.members_address,
     'cluster node ssh' : cluster.node_ssh,
     'cluster nodes terminate' : cluster.terminate,
-    'cluster destroy' : cluster.destroy
+    'cluster destroy' : cluster.destroy,
+
+    'puppet master config' : puppet.master_config
 }
 
 def usage(code=1):
@@ -68,8 +71,11 @@ if command not in handlers:
 pargs = []
 kwargs = {}
 for arg in args:
-    if '=' in arg:
-        k,v = arg.split('=', 1)
+    if '=' in arg or arg.startswith('--'):
+        if '=' in arg:
+            k,v = arg.split('=', 1)
+        else:
+            k,v = (arg,True)
         if k.startswith('--'): k = k[2:]
         kwargs[k] = v
     else:

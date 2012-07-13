@@ -56,19 +56,14 @@ much like AWS scripts. A few values are required for EC2 API access:
 Puppet Master Configuration
 ---------------------------
 
-You'll need to do some Puppet master node setup. You want to do this
-and have the master ready before starting any nodes. Make sure you
-have Puppet installed. Then, copy the config files into place:
+You'll need to do some Puppet master node setup. The easiest way is to
+work against a local puppet master using the default layout, in which
+case you can just:
 
-    sudo cp -r data/puppet/* /etc/puppet/
+    ./sirikata-cluster.py puppet master config --yes
 
-Note that you may also need to adjust your /etc/puppet/fileserver.conf
-to allow loading files from the agent nodes. The data is under
-/etc/puppet/files and you should enable access in the [files] section,
-e.g. for a complete whitelist add the line
-
-    allow 0.0.0.0/0
-
+You'll need to enter your sudo password to edit/add files under
+/etc/puppet.
 
 Corosync One-time Configuration
 -------------------------------

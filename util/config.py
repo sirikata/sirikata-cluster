@@ -37,13 +37,26 @@ def check_config():
 
 
 def get(name, default=None):
-    if hasattr(sys.modules[__name__], name) and getattr(sys.modules[__name__], name):
-        return getattr(sys.modules[__name__], name)
-    if default: return default
+    if name is not None:
+        if hasattr(sys.modules[__name__], name) and getattr(sys.modules[__name__], name):
+            return getattr(sys.modules[__name__], name)
+    if default is not None: return default
     print "Couldn't find required configuration parameter: %s" % (name)
     exit(1)
 
 
-def kwarg_or_get(kwarg_key, kwargs, config, default=None):
+def kwarg_or_get(kwarg_key, kwargs, config=None, default=None):
     if kwarg_key in kwargs: return kwargs[kwarg_key]
-    get(config, default=default)
+    return get(config, default=default)
+
+
+
+
+def ask_user_bool(msg, default=False):
+    print msg,
+    while True:
+        resp = raw_input().strip().lower()
+        if len(resp) == 0: return default
+        if resp in [ 'n', 'no', '0' ]: return False
+        if resp in [ 'y', 'yes', '1' ]: return True
+        print 'Invalid response, try again:',
