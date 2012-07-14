@@ -1,10 +1,21 @@
 class default_node {
 
+  # SIRIKATA DATA FILES AND REQUIREMENTS
+
+  # For extracting contents of archive with binaries
   package { 'bzip2':
     ensure => installed
   }
-
-  # SIRIKATA DATA FILES AND REQUIREMENTS
+  # For weight-sqr
+  package { 'libgsl0ldbl':
+    ensure => installed
+  }
+  # For oh-cassandra
+  # FIXME does this depend on the version we built the binaries on?
+  # Looks like there are 1.0.0 versions and libssl-dev at 1.0.1...
+  package { 'libssl0.9.8':
+    ensure => installed
+  }
 
   #  Unfortunately, puppet is *extremely* slow about copying files
   #  through it's normal file replication mechanism when there are
