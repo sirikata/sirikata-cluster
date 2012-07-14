@@ -17,10 +17,14 @@ def parse_or_die(cmd, types, *args, **kwargs):
     return_rest = ('rest' in kwargs and kwargs['rest'])
 
     if len(args) < len(types):
-        print "Too few parameters for '%s'" % (cmd)
+        print "Too few parameters. Command help:"
+        print
+        print cmd.__doc__
         exit(1)
     if len(args) != len(types) and not return_rest:
-        print "Too many parameters for '%s'" % (cmd)
+        print "Too many parameters. Command help:"
+        print
+        print cmd.__doc__
         exit(1)
 
     args_out = []

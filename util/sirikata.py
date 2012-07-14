@@ -15,7 +15,7 @@ def package(*args, **kwargs):
     equivalent of sirikata-cluster.py puppet slaves restart cluster_name)
     """
 
-    installed_path = arguments.parse_or_die('sirikata package', [str], *args)
+    installed_path = arguments.parse_or_die(package, [str], *args)
     puppet_base_path = config.kwarg_or_get('puppet-path', kwargs, 'PUPPET_PATH', default='/etc/puppet')
     notify_puppets = config.kwarg_or_default('notify-puppets', kwargs)
     # Note pemfile is different from other places since it's only required with notify-puppets.

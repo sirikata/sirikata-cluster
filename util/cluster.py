@@ -63,7 +63,7 @@ def create_security_group(*args, **kwargs):
     deployment, but this is a good starting point.
     """
 
-    group_name, group_desc = arguments.parse_or_die('cluster security create', [str, str], *args)
+    group_name, group_desc = arguments.parse_or_die(create_security_group, [str, str], *args)
 
     conn = EC2Connection(config.AWS_ACCESS_KEY_ID, config.AWS_SECRET_ACCESS_KEY)
     # We may already have a security group with this name that needs updating
@@ -108,7 +108,7 @@ def create(*args, **kwargs):
     and saves its properties, it doesn't actually allocate any nodes.
     """
 
-    name, size, puppet_master, keypair = arguments.parse_or_die('cluster create', [str, int, str, str], *args)
+    name, size, puppet_master, keypair = arguments.parse_or_die(create, [str, int, str, str], *args)
 
     instance_type = config.kwarg_or_get('instance-type', kwargs, 'INSTANCE_TYPE')
     group = config.kwarg_or_get('group', kwargs, 'SECURITY_GROUP')
@@ -127,7 +127,7 @@ def boot(*args, **kwargs):
     Boot a cluster's nodes.
     """
 
-    name = arguments.parse_or_die('cluster nodes boot', [str], *args)
+    name = arguments.parse_or_die(boot, [str], *args)
     cc = ClusterConfigFile(name)
 
     if 'reservation' in cc.state or 'instances' in cc.state:
@@ -165,7 +165,7 @@ def members_address(*args, **kwargs):
     puppet).
     """
 
-    name = arguments.parse_or_die('cluster members address list', [str], *args)
+    name = arguments.parse_or_die(members_address, [str], *args)
     cc = ClusterConfigFile(name)
 
     if 'reservation' not in cc.state or 'instances' not in cc.state:
@@ -219,7 +219,7 @@ def node_ssh(*args, **kwargs):
     Spawn an SSH process that SSHs into the node
     """
 
-    name, idx, remote_cmd = arguments.parse_or_die('cluster node ssh', [str, int], rest=True, *args)
+    name, idx, remote_cmd = arguments.parse_or_die(node_ssh, [str, int], rest=True, *args)
     pemfile = os.path.expanduser(config.kwarg_or_get('pem', kwargs, 'SIRIKATA_CLUSTER_PEMFILE'))
 
     cc = ClusterConfigFile(name)
@@ -247,7 +247,7 @@ def ssh(*args, **kwargs):
     to execute.
     """
 
-    name, remote_cmd = arguments.parse_or_die('cluster ssh', [str], rest=True, *args)
+    name, remote_cmd = arguments.parse_or_die(ssh, [str], rest=True, *args)
     pemfile = os.path.expanduser(config.kwarg_or_get('pem', kwargs, 'SIRIKATA_CLUSTER_PEMFILE'))
     if not remote_cmd:
         print "You need to add a command to execute across all the nodes."
@@ -265,7 +265,7 @@ def fix_corosync(*args, **kwargs):
     now booted up.
     """
 
-    name = arguments.parse_or_die('cluster ssh', [str], *args)
+    name = arguments.parse_or_die(fix_corosync, [str], *args)
     pemfile = os.path.expanduser(config.kwarg_or_get('pem', kwargs, 'SIRIKATA_CLUSTER_PEMFILE'))
 
     # Sequence is:
@@ -288,7 +288,7 @@ def terminate(*args, **kwargs):
     Terminate an existing cluster
     """
 
-    name = arguments.parse_or_die('cluster nodes terminate', [str], *args)
+    name = arguments.parse_or_die(terminate, [str], *args)
 
     cc = ClusterConfigFile(name)
     if 'instances' not in cc.state:
@@ -315,7 +315,7 @@ def destroy(*args, **kwargs):
     Terminate an existing cluster
     """
 
-    name = arguments.parse_or_die('cluster nodes terminate', [str], *args)
+    name = arguments.parse_or_die(destroy, [str], *args)
 
     cc = ClusterConfigFile(name)
     if 'reservation' in cc.state or 'instances' in cc.state:

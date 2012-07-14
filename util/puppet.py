@@ -77,7 +77,7 @@ def slaves_restart(*args, **kwargs):
     kicking all slaves to reconfigure and re-run their settings.
     """
 
-    name = arguments.parse_or_die('puppet slaves restart', [str], *args)
+    name = arguments.parse_or_die(slaves_restart, [str], *args)
     pemfile = os.path.expanduser(config.kwarg_or_get('pem', kwargs, 'SIRIKATA_CLUSTER_PEMFILE'))
 
     cluster.ssh(name, 'sudo', 'service', 'puppet', 'restart', pem=pemfile)
