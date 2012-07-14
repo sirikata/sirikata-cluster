@@ -16,6 +16,7 @@ except:
 import util.config as config
 import util.cluster as cluster
 import util.puppet as puppet
+import util.sirikata as sirikata
 import sys
 
 # Parse config options, currently only from the environment variables
@@ -37,7 +38,9 @@ handlers = {
     'cluster destroy' : cluster.destroy,
 
     'puppet master config' : puppet.master_config,
-    'puppet slaves restart' : puppet.slaves_restart
+    'puppet slaves restart' : puppet.slaves_restart,
+
+    'sirikata package' : sirikata.package
 }
 
 def usage(code=1):

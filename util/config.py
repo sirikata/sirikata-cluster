@@ -46,6 +46,9 @@ def get(name, default=None):
     print "Couldn't find required configuration parameter: %s" % (name)
     exit(1)
 
+def kwarg_or_default(kwarg_key, kwargs, default=None):
+    if kwarg_key in kwargs: return kwargs[kwarg_key]
+    return default
 
 def kwarg_or_get(kwarg_key, kwargs, config=None, default=None):
     if kwarg_key in kwargs: return kwargs[kwarg_key]

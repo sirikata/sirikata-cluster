@@ -65,6 +65,7 @@ case you can just:
 You'll need to enter your sudo password to edit/add files under
 /etc/puppet.
 
+
 Corosync One-time Configuration
 -------------------------------
 
@@ -82,6 +83,41 @@ location:
     mkdir -p /etc/puppet/files/etc/corosync
     cp /etc/corosync/authkey /etc/puppet/files/etc/corosync/
 
+
+Sirikata Packaging
+------------------
+
+Sirikata needs to be packaged to run on the cluster. You should run a
+make install step (ideally in Release mode and *without* any
+non-server dependencies, i.e. having run make headless-depends and not
+make depends). Then, tar the contents *without any prefixed
+folder*. In other words, you should have bin/, lib/, and share/ as the
+top level, e.g.,
+
+    > cd installed-sirikata
+    > ls
+      bin/ include/ lib/ share/
+    # Note that we list directories explicitly so we can skip include/
+    > tar -cjvf sirikata.tar.bz2 ./bin ./lib ./share
+
+Then place this in your puppet files directory under
+home/ubuntu/sirikata.tar.bz2. On a default puppet install that will be
+at /etc/puppet/files/home/ubuntu/sirikata.tar.bz2, e.g.,
+
+    > sudo mkdir -p /etc/puppet/files/home/ubuntu
+    > sudo cp sirikata.tar.bz2 /etc/puppet/files/home/ubuntu/
+
+That's it. If you need to update this file for a running cluster, copy
+a new one into place and force all the puppets on your cluster to
+restart so they pick up the change:
+
+    ./sirikata-cluster.py puppet slaves restart
+
+Assuming you don't have any special requirements such as additional
+files or unusual layout, you can use a helper command to do all this
+for you:
+
+    ./sirikata-cluster.py sirikata package /path/to/installed/sirikata
 
 
 Clusters
@@ -119,11 +155,15 @@ For that, just ask for the nodes to be booted:
 
 While they're active, you can get an ssh prompt into one of the nodes:
 
-    ./sirikata-cluster.py cluster node ssh mycluster 1 my_ec2_ssh_key.pem
+    ./sirikata-cluster.py cluster node ssh mycluster 1 [--pem=my_ec2_ssh_key.pem]
 
 where the number is the node index (starting at 0) and the pem file is
 the key pair file corresponding to the key pair name you specified in
-the creation stage for ssh access.
+the creation stage for ssh access. This is required, but marked as
+optional above because you can also specify it via the environment
+variable SIRIKATA_CLUSTER_PEMFILE, which is nicer since it's used by a
+number of commands (sometimes indirectly where it may not be obvious
+it is needed).
 
 
 Unfortunately, because the version of corosync available, the nodes
@@ -138,7 +178,7 @@ make the cluster usable (stonith-enabled=false). We've wrapped this
 whole process into a single command (you can look at the code to see
 the individual steps):
 
-    ./sirikata-cluster.py cluster fix corosync mycluster my_ec2_ssh_key.pem
+    ./sirikata-cluster.py cluster fix corosync mycluster [--pem=my_ec2_ssh_key.pem]
 
 (Note that this assumes a local puppet master in the default location).
 At this point, you should have the nodes ready for executing pacemaker

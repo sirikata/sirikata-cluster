@@ -1,5 +1,45 @@
 class default_node {
 
+  package { 'bzip2':
+    ensure => installed
+  }
+
+  # SIRIKATA DATA FILES AND REQUIREMENTS
+
+  #  Unfortunately, puppet is *extremely* slow about copying files
+  #  through it's normal file replication mechanism when there are
+  #  lots of files. So instead of replicating the files directly, we
+  #  ask for a compressed archive and then extract it.
+  #
+  #  FIXME Even this is inefficient, it'd be even better to put it on
+  #  S3, bittorrent, or something where we won't have transfer all of
+  #  it from the source server.
+  #
+  #  We make some services depend on this so we won't, e.g., fail to
+  #  run something because pacemaker started but we didn't have the
+  #  Sirikata binaries yet. You need to make sure you have an
+  #  installed-formatted (i.e. bin/, lib/, share/ dirs) under puppet's
+  #  files/home/ubuntu/sirikata.
+  file { '/home/ubuntu/sirikata.tar.bz2':
+    ensure => file,
+    owner => 'ubuntu',
+    group => 'ubuntu',
+    source  => "puppet:///files/home/ubuntu/sirikata.tar.bz2",
+  }
+  file { '/home/ubuntu/sirikata':
+    ensure => directory,
+    owner => 'ubuntu',
+    group => 'ubuntu',
+  }
+  exec { 'Sirikata Binaries':
+    command => 'tar -xvf ../sirikata.tar.bz2',
+    cwd => '/home/ubuntu/sirikata',
+    path => [ '/bin', '/usr/bin' ],
+    user => 'ubuntu',
+    unless => 'test -d /home/ubuntu/sirikata/bin/space', # Reasonable sanity check
+    require => File['/home/ubuntu/sirikata.tar.bz2', '/home/ubuntu/sirikata'],
+  }
+
   # COROSYNC
 
   package { 'corosync':
@@ -48,7 +88,8 @@ class default_node {
   service { 'pacemaker':
     ensure => running,
     enable => true,
-    require => [ Package['pacemaker'], Service['corosync'] ],
+    # Note dependency on Sirikata files so that we don't start until we have the binaries we want to run
+    require => [ Package['pacemaker'], Service['corosync'], Exec['Sirikata Binaries'] ],
     subscribe => Service['corosync'], # Restart after corosync restarts
   }
 
