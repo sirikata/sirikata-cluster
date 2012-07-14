@@ -122,12 +122,15 @@ def create(*args, **kwargs):
     cc.save()
 
 def boot(*args, **kwargs):
-    """cluster nodes boot name
+    """cluster nodes boot name [--wait-timeout=300]
 
-    Boot a cluster's nodes.
+    Boot a cluster's nodes. The command will block for wait-timeout
+    seconds, or until all nodes reach a ready state (currently defined
+    as being pingable). A wait-timeout of 0 disables this.
     """
 
     name = arguments.parse_or_die(boot, [str], *args)
+    timeout = config.kwarg_or_default('wait-timeout', kwargs, default=300)
     cc = ClusterConfigFile(name)
 
     if 'reservation' in cc.state or 'instances' in cc.state:
@@ -156,6 +159,57 @@ def boot(*args, **kwargs):
     # Name the nodes
     for idx,inst in enumerate(reservation.instances):
         conn.create_tags([inst.id], {"Name": instance_name(name, idx)})
+
+    if timeout > 0:
+        print "Waiting for nodes to become pingable..."
+        wait_pingable(name, timeout=timeout)
+
+def wait_pingable(*args, **kwargs):
+    '''Wait for nodes to become pingable, with an optional timeout.'''
+
+    name = arguments.parse_or_die(wait_pingable, [str], *args)
+    timeout = int(config.kwarg_or_get('timeout', kwargs, 'SIRIKATA_PING_WAIT_TIMEOUT', default=0))
+
+    cc = ClusterConfigFile(name)
+
+    conn = EC2Connection(config.AWS_ACCESS_KEY_ID, config.AWS_SECRET_ACCESS_KEY)
+    # We need to loop until we can get IPs for all nodes
+    waited = 0
+    while (timeout == 0 or waited < timeout):
+        instances_info = conn.get_all_instances(instance_ids = cc.state['instances'])
+        # Should get back a list of one reservation
+        instances_info = instances_info[0].instances
+        instances = dict([(inst.id, inst) for inst in instances_info])
+        not_pinged = set(cc.state['instances'])
+
+        # If none are missing IPs, we can exit
+        if not any([inst.ip_address is None for inst in instances_info]):
+            break
+        # Otherwise sleep awhile and then try again
+        time.sleep(10)
+
+    # Just loop, waiting on any (i.e. the first) node in the set, reset our timeout
+    waited = 0
+    while not_pinged and (timeout == 0 or waited < timeout):
+        node_id = next(iter(not_pinged))
+        ip = instances[node_id].ip_address
+        print 'Waiting on %s (%s)' % (node_id, str(ip))
+        # One of those rare instances we just want to dump the output
+        retcode = 0
+        with open('/dev/null', 'w') as devnull:
+            retcode = subprocess.call(['ping', '-c', '2', str(ip)], stdout=devnull, stderr=devnull)
+        if retcode == 0: # ping success
+            not_pinged.remove(node_id)
+            continue
+        time.sleep(5)
+        waited += 5
+
+    if not_pinged:
+        print "Failed to ping %s" % (next(iter(not_pinged)))
+        exit(1)
+    print "Success"
+    return 0
+
 
 def members_address(*args, **kwargs):
     """cluster members address list cluster_name
