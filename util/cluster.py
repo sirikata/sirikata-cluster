@@ -193,7 +193,7 @@ def members_address(*args, **kwargs):
                                 ring0_addr: %s
                                 nodeid: %d
                         }""" % (ip, idx)
-    quorum_member_section = """
+    quorum_member_section += """
                 }"""
 
     corosync_conf = corosync_conf.replace('{{{MEMBERS}}}', member_section)
