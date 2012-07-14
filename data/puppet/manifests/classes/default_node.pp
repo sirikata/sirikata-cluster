@@ -101,6 +101,8 @@ class default_node {
   service { 'pacemaker':
     ensure => running,
     enable => true,
+    hasrestart => true,
+    hasstatus => true,
     # Note dependency on Sirikata files so that we don't start until we have the binaries we want to run
     require => [ Package['pacemaker'], Service['corosync'], Exec['Sirikata Binaries'] ],
     subscribe => Service['corosync'], # Restart after corosync restarts
