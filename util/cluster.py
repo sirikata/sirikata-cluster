@@ -2,7 +2,7 @@
 
 import config, data, arguments
 from boto.ec2.connection import EC2Connection
-import json, os, time
+import json, os, time, subprocess
 
 def instance_name(cname, idx):
     return cname + '-' + str(idx)
@@ -235,7 +235,7 @@ def node_ssh(*args, **kwargs):
     pub_dns_name = instance_info.public_dns_name
 
     cmd = ["ssh", "-i", pemfile, "ubuntu@" + pub_dns_name] + list(remote_cmd)
-    os.execv("/usr/bin/ssh", cmd)
+    subprocess.call(cmd)
 
 
 def ssh(*args, **kwargs):
