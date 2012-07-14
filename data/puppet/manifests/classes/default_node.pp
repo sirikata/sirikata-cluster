@@ -1,5 +1,7 @@
 class default_node {
 
+  include ntp
+
   # SIRIKATA DATA FILES AND REQUIREMENTS
 
   # For extracting contents of archive with binaries

@@ -42,6 +42,11 @@ Ubuntu:
     sudo apt-get install python python-pip
     sudo pip install -U boto
 
+There are also some Puppet modules included as git submodules, so do
+
+    git submodule update --init --recursive
+
+to make sure you have a complete checkout.
 
 Configuration
 -------------
