@@ -36,7 +36,7 @@ class default_node {
     cwd => '/home/ubuntu/sirikata',
     path => [ '/bin', '/usr/bin' ],
     user => 'ubuntu',
-    unless => 'test -d /home/ubuntu/sirikata/bin/space', # Reasonable sanity check
+    unless => 'test -f /home/ubuntu/sirikata/bin/space', # Reasonable sanity check
     require => File['/home/ubuntu/sirikata.tar.bz2', '/home/ubuntu/sirikata'],
   }
 
