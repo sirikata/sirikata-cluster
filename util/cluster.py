@@ -2,7 +2,7 @@
 
 import config, data, arguments
 from boto.ec2.connection import EC2Connection
-import json, os
+import json, os, time
 
 def instance_name(cname, idx):
     return cname + '-' + str(idx)
@@ -276,8 +276,14 @@ def fix_corosync(*args, **kwargs):
     # 3. Restart slave puppets, making them pick up the new config and
     # restart corosync
     puppet.slaves_restart(name, pem=pemfile)
+    print "Sleeping for 30 seconds to give the slave puppets a chance to recover..."
+    time.sleep(30)
     # 4. Get one node to turn stonith-enabled off
+    print "Disabling stonith"
     node_ssh(name, 0, 'sudo', 'crm', 'configure', 'property', 'stonith-enabled=false', pem=pemfile)
+    # 5. Verifying good state
+    print "Verifying that the cluster is in a good state. If the following command outputs messages, something is wrong..."
+    node_ssh(name, 0, 'sudo', 'crm_verify', '-L', pem=pemfile)
 
 def terminate(*args, **kwargs):
     """cluster nodes terminate name
