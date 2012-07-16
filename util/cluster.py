@@ -491,7 +491,7 @@ def add_service(*args, **kwargs):
 
     retcode = node_ssh(cname, 0,
                        'sudo', 'crm', 'configure', 'primitive',
-                       service_name, 'ocf:heartbeat:anything',
+                       service_name, 'ocf:sirikata:anything',
                        'params',
                        'binfile=' + service_binary,
                        'cmdline_options="' + service_args + '"'

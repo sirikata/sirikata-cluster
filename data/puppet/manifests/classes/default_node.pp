@@ -77,6 +77,14 @@ class default_node {
     group => 'root',
   }
 
+  file { '/usr/lib/ocf/resource.d/sirikata':
+    ensure => file,
+    source  => "puppet:///files/usr/lib/ocf/resource.d/sirikata",
+    owner => 'root',
+    group => 'root',
+    recurse => true,
+  }
+
   exec { 'enable corosync':
     command => 'sed -i s/START=no/START=yes/ /etc/default/corosync',
     path => [ '/bin', '/usr/bin' ],
@@ -87,7 +95,7 @@ class default_node {
   service { 'corosync':
     ensure => running,
     enable => true,
-    require => [ Exec['enable corosync'], File['/etc/corosync/authkey'] ],
+    require => [ Exec['enable corosync'], File['/etc/corosync/authkey'], File['/usr/lib/ocf/resource.d/sirikata'] ],
     subscribe => File['/etc/corosync/corosync.conf', '/etc/corosync/authkey'],
   }
 
