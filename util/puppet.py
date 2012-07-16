@@ -81,3 +81,16 @@ def slaves_restart(*args, **kwargs):
     pemfile = os.path.expanduser(config.kwarg_or_get('pem', kwargs, 'SIRIKATA_CLUSTER_PEMFILE'))
 
     cluster.ssh(name, 'sudo', 'service', 'puppet', 'restart', pem=pemfile)
+
+
+def update(*args, **kwargs):
+    """puppet update cluster_name [--pem=/path/to/key.pem]
+
+    Performs both master configuration and slave restart.
+    """
+
+    name = arguments.parse_or_die(update, [str], *args)
+    pemfile = os.path.expanduser(config.kwarg_or_get('pem', kwargs, 'SIRIKATA_CLUSTER_PEMFILE'))
+
+    master_config('--yes')
+    slaves_restart(name, pem=pemfile)

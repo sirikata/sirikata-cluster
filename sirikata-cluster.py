@@ -42,6 +42,7 @@ handlers = {
 
     'puppet master config' : puppet.master_config,
     'puppet slaves restart' : puppet.slaves_restart,
+    'puppet update' : puppet.update,
 
     'sirikata package' : sirikata.package
 }
