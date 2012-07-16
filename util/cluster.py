@@ -122,19 +122,30 @@ def create(*args, **kwargs):
     cc.save()
 
 def boot(*args, **kwargs):
-    """cluster nodes boot name [--wait-timeout=300]
+    """cluster nodes boot name [--wait-timeout=300 --pem=/path/to/key.pem]
 
     Boot a cluster's nodes. The command will block for wait-timeout
     seconds, or until all nodes reach a ready state (currently defined
-    as being pingable). A wait-timeout of 0 disables this.
+    as being pingable and containing two files indicating readiness of
+    Sirikata and Pacemaker). A wait-timeout of 0 disables this. A pem
+    file, either passed on the command line or through the environment
+    is required for the timeout to work properly. Note that with
+    timeouts enabled, this will run 'cluster fix corosync' as well as
+    that is required for the nodes to reach a ready state.
     """
 
     name = arguments.parse_or_die(boot, [str], *args)
     timeout = config.kwarg_or_default('wait-timeout', kwargs, default=300)
+    # Note pemfile is different from other places since it's only required with wait-timeout.
+    pemfile = config.kwarg_or_get('pem', kwargs, 'SIRIKATA_CLUSTER_PEMFILE', default=None)
     cc = ClusterConfigFile(name)
 
     if 'reservation' in cc.state or 'instances' in cc.state:
         print "It looks like you already have active nodes for this cluster..."
+        exit(1)
+
+    if timeout > 0 and not pemfile:
+        print "You need to specify a pem file to use timeouts."
         exit(1)
 
     # Load the setup script template, replace puppet master info
@@ -162,7 +173,37 @@ def boot(*args, **kwargs):
 
     if timeout > 0:
         print "Waiting for nodes to become pingable..."
-        wait_pingable(name, timeout=timeout)
+        pingable = wait_pingable(name, timeout=timeout)
+        if pingable != 0: return pingable
+        # Give a bit more time for the nodes to become ready, pinging
+        # may happen before all services are finished starting
+        print "Sleeping to allow nodes to finish booting"
+        time.sleep(15)
+        print "Fixing corosync..."
+        pem_kwargs = {}
+        if pemfile is not None: pem_kwargs['pem'] = pemfile
+        fix_corosync(name, **pem_kwargs)
+        print "Waiting for nodes to become ready..."
+        return wait_ready(name, timeout=timeout, **pem_kwargs)
+
+    return 0
+
+
+def get_all_instances(cc, conn):
+    '''Get instance info for all nodes as a dict of instance id -> instance info'''
+    reservations = conn.get_all_instances(instance_ids = cc.state['instances'])
+    # This could return a bunch of reservations, each with instances in them
+    instances = []
+    for res in reservations:
+        instances += list(res.instances)
+    return dict([(inst.id, inst) for inst in instances])
+
+def get_all_ips(cc, conn):
+    '''Returns a dict of instance id -> IP address. Note that the IP
+    address can be None if the node hasn't finished booting/being
+    configured'''
+    instances = get_all_instances(cc, conn)
+    return dict([(inst.id, inst.ip_address) for inst in instances.values()])
 
 def wait_pingable(*args, **kwargs):
     '''Wait for nodes to become pingable, with an optional timeout.'''
@@ -176,14 +217,11 @@ def wait_pingable(*args, **kwargs):
     # We need to loop until we can get IPs for all nodes
     waited = 0
     while (timeout == 0 or waited < timeout):
-        instances_info = conn.get_all_instances(instance_ids = cc.state['instances'])
-        # Should get back a list of one reservation
-        instances_info = instances_info[0].instances
-        instances = dict([(inst.id, inst) for inst in instances_info])
-        not_pinged = set(cc.state['instances'])
+        instances_ips = get_all_ips(cc, conn)
+        not_pinged = set(instances_ips.keys())
 
         # If none are missing IPs, we can exit
-        if not any([inst.ip_address is None for inst in instances_info]):
+        if not any([ip is None for ip in instances_ips.values()]):
             break
         # Otherwise sleep awhile and then try again
         time.sleep(10)
@@ -192,7 +230,7 @@ def wait_pingable(*args, **kwargs):
     waited = 0
     while not_pinged and (timeout == 0 or waited < timeout):
         node_id = next(iter(not_pinged))
-        ip = instances[node_id].ip_address
+        ip = instances_ips[node_id]
         print 'Waiting on %s (%s)' % (node_id, str(ip))
         # One of those rare instances we just want to dump the output
         retcode = 0
@@ -209,6 +247,45 @@ def wait_pingable(*args, **kwargs):
         exit(1)
     print "Success"
     return 0
+
+def wait_ready(*args, **kwargs):
+    '''Wait for nodes to become ready, with an optional timeout. Ready
+    means that puppet has finished configuring packages and left
+    indicators that both Sirikata and Pacemaker are available. You
+    should make sure all nodes are pingable before running this.'''
+
+    name = arguments.parse_or_die(wait_ready, [str], *args)
+    timeout = int(config.kwarg_or_get('timeout', kwargs, 'SIRIKATA_READY_WAIT_TIMEOUT', default=0))
+    pemfile = os.path.expanduser(config.kwarg_or_get('pem', kwargs, 'SIRIKATA_CLUSTER_PEMFILE'))
+
+    cc = ClusterConfigFile(name)
+
+    conn = EC2Connection(config.AWS_ACCESS_KEY_ID, config.AWS_SECRET_ACCESS_KEY)
+
+    instances_ips = get_all_ips(cc, conn)
+    not_ready = set(instances_ips.keys())
+
+    # Just loop, waiting on any (i.e. the first) node in the set, reset our timeout
+    waited = 0
+    while not_ready and (timeout == 0 or waited < timeout):
+        node_id = next(iter(not_ready))
+        ip = instances_ips[node_id]
+        print 'Waiting on %s (%s)' % (node_id, str(ip))
+        node_idx = cc.state['instances'].index(node_id)
+        remote_cmd = ['test', '-f', '/home/ubuntu/ready/pacemaker', '&&', 'test', '-f', '/home/ubuntu/ready/sirikata']
+        retcode = node_ssh(name, node_idx, *remote_cmd, pem=pemfile)
+        if retcode == 0: # command success
+            not_ready.remove(node_id)
+            continue
+        time.sleep(5)
+        waited += 5
+
+    if not_ready:
+        print "Failed to find readiness indicators for %s" % (next(iter(not_ready)))
+        exit(1)
+    print "Success"
+    return 0
+
 
 
 def members_address(*args, **kwargs):
@@ -289,7 +366,7 @@ def node_ssh(*args, **kwargs):
     pub_dns_name = instance_info.public_dns_name
 
     cmd = ["ssh", "-i", pemfile, "ubuntu@" + pub_dns_name] + list(remote_cmd)
-    subprocess.call(cmd)
+    return subprocess.call(cmd)
 
 
 def ssh(*args, **kwargs):

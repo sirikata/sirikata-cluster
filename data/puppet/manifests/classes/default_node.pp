@@ -56,7 +56,7 @@ class default_node {
   # COROSYNC
 
   package { 'corosync':
-    ensure => installed
+    ensure => installed,
   }
 
   # We need the network of the IP address to bind to, e.g. if we get
@@ -103,8 +103,7 @@ class default_node {
     enable => true,
     hasrestart => true,
     hasstatus => true,
-    # Note dependency on Sirikata files so that we don't start until we have the binaries we want to run
-    require => [ Package['pacemaker'], Service['corosync'], Exec['Sirikata Binaries'] ],
+    require => [ Package['pacemaker'], Service['corosync'] ],
     subscribe => Service['corosync'], # Restart after corosync restarts
   }
 
@@ -114,5 +113,28 @@ class default_node {
     command => "/usr/sbin/crm configure property stonith-enabled=false",
     unless => "/usr/sbin/crm_verify -L",
     require => Service['pacemaker'],
+  }
+
+
+  # READINESS INDICATORS These create files that let us know when
+  # things are ready.
+  file { '/home/ubuntu/ready' :
+    ensure  => directory,
+    owner => 'ubuntu',
+    group => 'ubuntu',
+  }
+  file { '/home/ubuntu/ready/pacemaker' :
+    ensure  => file,
+    require => [ File['/home/ubuntu/ready'], Exec['disable stonith'] ],
+    content => '',
+    owner => 'ubuntu',
+    group => 'ubuntu',
+  }
+  file { '/home/ubuntu/ready/sirikata' :
+    ensure  => file,
+    require => [ File['/home/ubuntu/ready'], Exec['Sirikata Binaries'] ],
+    content => '',
+    owner => 'ubuntu',
+    group => 'ubuntu',
   }
 }
