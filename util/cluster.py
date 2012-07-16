@@ -304,10 +304,7 @@ def members_address(*args, **kwargs):
         exit(1)
 
     conn = EC2Connection(config.AWS_ACCESS_KEY_ID, config.AWS_SECRET_ACCESS_KEY)
-    instances_info = conn.get_all_instances(instance_ids = cc.state['instances'])
-    # Should get back a list of one reservation
-    instances_info = instances_info[0].instances
-    ips = [inst.ip_address for inst in instances_info]
+    ips = get_all_ips(cc, conn).values()
 
     corosync_conf = data.load('corosync', 'corosync.conf.template')
     # Cluster members
@@ -345,6 +342,45 @@ directory. If you're running the Puppet master locally, run
   sudo cp data/puppet/templates/corosync.conf /etc/puppet/templates/corosync.conf
 
 """
+
+
+def members_info(*args, **kwargs):
+    """cluster members info cluster_name
+
+    Get a list of members and their properties, in json.
+    """
+
+    name = arguments.parse_or_die(members_info, [str], *args)
+    cc = ClusterConfigFile(name)
+
+    if 'reservation' not in cc.state or 'instances' not in cc.state:
+        print "It doesn't look like you've booted the cluster yet..."
+        exit(1)
+
+    conn = EC2Connection(config.AWS_ACCESS_KEY_ID, config.AWS_SECRET_ACCESS_KEY)
+    instances = get_all_instances(cc, conn)
+
+    def pacemaker_id(inst):
+        assert( inst.private_dns_name.endswith('compute-1.internal') )
+        return inst.private_dns_name.replace('.compute-1.internal', '')
+
+    instances = [
+        {
+            'id' : inst.id,
+            'pacemaker_id' : pacemaker_id(inst),
+
+            'ip' : inst.ip_address,
+            'dns_name' : inst.dns_name,
+            'private_ip' : inst.private_ip_address,
+            'private_dns_name' : inst.private_dns_name,
+
+            'state' : inst.state,
+            'instance_type' : inst.instance_type,
+            }
+        for instid, inst in instances.iteritems()]
+
+    print json.dumps(instances, indent=4)
+
 
 def node_ssh(*args, **kwargs):
     """cluster node ssh cluster_name index [--pem=/path/to/key.pem] [optional additional arguments give command just like with real ssh]

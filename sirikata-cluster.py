@@ -31,6 +31,7 @@ handlers = {
     'cluster create' : cluster.create,
     'cluster nodes boot' : cluster.boot,
     'cluster members address list' : cluster.members_address,
+    'cluster members info' : cluster.members_info,
     'cluster node ssh' : cluster.node_ssh,
     'cluster ssh' : cluster.ssh,
     'cluster fix corosync' : cluster.fix_corosync,
