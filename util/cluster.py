@@ -466,7 +466,7 @@ def status(*args, **kwargs):
 
 
 def add_service(*args, **kwargs):
-    """cluster add service cluster_name service_id [--pem=/path/to/pem.key] [--] command to run
+    """cluster add service cluster_name service_id [--pem=/path/to/pem.key] [--user=ubuntu] [--cwd=/path/to/execute] [--] command to run
 
     Add a service to run on the cluster. The service needs to be
     assigned a unique id (a string) and takes the form of a command
@@ -475,9 +475,14 @@ def add_service(*args, **kwargs):
     -- before the command so they aren't used as arguments to this
     command. You should also be sure that the command's binary is
     specified as a full path.
+
+    user specifies the user account that should execute the service
+    cwd sets the working directory for the service
     """
 
     cname, service_name, target_node, service_cmd = arguments.parse_or_die(add_service, [str, str, str], rest=True, *args)
+    user = config.kwarg_or_default('user', kwargs, default='ubuntu')
+    cwd = config.kwarg_or_default('cwd', kwargs, default='/home/ubuntu')
     pemfile = os.path.expanduser(config.kwarg_or_get('pem', kwargs, 'SIRIKATA_CLUSTER_PEMFILE'))
 
     if not len(service_cmd):
@@ -506,7 +511,9 @@ def add_service(*args, **kwargs):
                        service_name, 'ocf:sirikata:anything',
                        'params',
                        'binfile=' + service_binary,
-                       'cmdline_options="' + service_args + '"'
+                       'user=' + user,
+                       'cwd=' + cwd,
+                       'cmdline_options="' + service_args + '"',
                        )
     if retcode != 0:
         print "Failed to add cluster service"

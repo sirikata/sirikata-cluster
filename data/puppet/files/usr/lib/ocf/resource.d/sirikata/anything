@@ -1,5 +1,7 @@
 #!/bin/sh
 #
+# This is a modified version of the OCF Heartbeat anything script.
+#
 #       OCF Resource Agent compliant resource script.
 #
 # Copyright (c) 2009 IN-telegence GmbH & Co. KG, Dominik Klein
@@ -27,6 +29,7 @@
 # OCF instance parameters
 #       OCF_RESKEY_binfile
 #       OCF_RESKEY_cmdline_options
+#       OCF_RESKEY_cwd
 #	OCF_RESKEY_pidfile
 #       OCF_RESKEY_logfile
 #       OCF_RESKEY_errlogfile
@@ -34,12 +37,12 @@
 #       OCF_RESKEY_monitor_hook
 #       OCF_RESKEY_stop_timeout
 #
-# This RA starts $binfile with $cmdline_options as $user and writes a $pidfile from that. 
+# This RA starts $binfile with $cmdline_options as $user and writes a $pidfile from that.
 # If you want it to, it logs:
-# - stdout to $logfile, stderr to $errlogfile or 
+# - stdout to $logfile, stderr to $errlogfile or
 # - stdout and stderr to $logfile
 # - or to will be captured by lrmd if these options are omitted.
-# Monitoring is done through $pidfile or your custom $monitor_hook script. 
+# Monitoring is done through $pidfile or your custom $monitor_hook script.
 # The RA expects the program to keep running "daemon-like" and
 # not just quit and exit. So this is NOT (yet - feel free to
 # enhance) a way to just run a single one-shot command which just
@@ -74,14 +77,14 @@ anything_start() {
 		if [ -n "$logfile" -a -n "$errlogfile" ]
 		then
 			# We have logfile and errlogfile, so redirect STDOUT und STDERR to different files
-			cmd="su - $user -c \"nohup $binfile $cmdline_options >> $logfile 2>> $errlogfile & \"'echo \$!' "
+			cmd="su - $user -c \"cd $cwd & nohup $binfile $cmdline_options >> $logfile 2>> $errlogfile & \"'echo \$!' "
 		else if [ -n "$logfile" ]
 			then
 				# We only have logfile so redirect STDOUT and STDERR to the same file
-				cmd="su - $user -c \"nohup $binfile $cmdline_options >> $logfile 2>&1 & \"'echo \$!' "
+				cmd="su - $user -c \"cd $cwd & nohup $binfile $cmdline_options >> $logfile 2>&1 & \"'echo \$!' "
 			else
 				# We have neither logfile nor errlogfile, so we're not going to redirect anything
-				cmd="su - $user -c \"nohup $binfile $cmdline_options & \"'echo \$!'"
+				cmd="su - $user -c \"cd $cwd & nohup $binfile $cmdline_options & \"'echo \$!'"
 			fi
 		fi
 		ocf_log debug "Starting $process: $cmd"
@@ -91,7 +94,7 @@ anything_start() {
 		then
 			ocf_log debug "$process: $cmd started successfully"
 			return $OCF_SUCCESS
-		else 
+		else
 			ocf_log err "$process: $cmd could not be started"
 			return $OCF_ERR_GENERIC
 		fi
@@ -125,7 +128,7 @@ anything_stop() {
                         	rm -f $pidfile
                                 return $OCF_SUCCESS
                         fi
-                        sleep 1 
+                        sleep 1
                         let "i++"
                 done
                 ocf_log warn "Stop with SIGTERM failed/timed out, now sending SIGKILL."
@@ -141,7 +144,7 @@ anything_stop() {
                 fi
 	else
 		# was not running, so stop can be considered successful
-		rm -f $pidfile 
+		rm -f $pidfile
 		return $OCF_SUCCESS
 	fi
 }
@@ -169,6 +172,7 @@ anything_monitor() {
 process="$OCF_RESOURCE_INSTANCE"
 binfile="$OCF_RESKEY_binfile"
 cmdline_options="$OCF_RESKEY_cmdline_options"
+cwd="$OCF_RESKEY_cwd"
 pidfile="$OCF_RESKEY_pidfile"
 [ -z "$pidfile" ] && pidfile=${HA_VARRUN}/anything_${process}.pid
 logfile="$OCF_RESKEY_logfile"
@@ -177,7 +181,12 @@ user="$OCF_RESKEY_user"
 [ -z "$user" ] && user=root
 
 anything_validate() {
-	if ! su - $user -c "test -x $binfile"
+	if ! su - $user -c "test -d $cwd"
+	then
+		ocf_log err "working directory $user does not exist or is not a directory."
+		exit $OCF_ERR_INSTALLED
+	fi
+	if ! su - $user -c "cd $cwd && test -x $binfile"
 	then
 		ocf_log err "binfile $binfile does not exist or is not executable by $user."
 		exit $OCF_ERR_INSTALLED
@@ -223,6 +232,13 @@ The full name of the binary to be executed. This is expected to keep running wit
 Command line options to pass to the binary
 </longdesc>
 <shortdesc lang="en">Command line options</shortdesc>
+<content type="string" />
+</parameter>
+<parameter name="cwd" required="0">
+<longdesc lang="en">
+Working directory to start the binary in
+</longdesc>
+<shortdesc lang="en">Current working directory</shortdesc>
 <content type="string" />
 </parameter>
 <parameter name="pidfile">
