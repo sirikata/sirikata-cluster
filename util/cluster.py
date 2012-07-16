@@ -122,7 +122,7 @@ def create(*args, **kwargs):
     cc.save()
 
 def boot(*args, **kwargs):
-    """cluster nodes boot name [--wait-timeout=300 --pem=/path/to/key.pem]
+    """cluster nodes boot name target_node [--wait-timeout=300 --pem=/path/to/key.pem]
 
     Boot a cluster's nodes. The command will block for wait-timeout
     seconds, or until all nodes reach a ready state (currently defined
@@ -134,7 +134,7 @@ def boot(*args, **kwargs):
     that is required for the nodes to reach a ready state.
     """
 
-    name = arguments.parse_or_die(boot, [str], *args)
+    name, target_node = arguments.parse_or_die(boot, [str, str], *args)
     timeout = config.kwarg_or_default('wait-timeout', kwargs, default=300)
     # Note pemfile is different from other places since it's only required with wait-timeout.
     pemfile = config.kwarg_or_get('pem', kwargs, 'SIRIKATA_CLUSTER_PEMFILE', default=None)
@@ -310,12 +310,14 @@ def members_address(*args, **kwargs):
     ips = [inst.ip_address for inst in instances_info]
 
     corosync_conf = data.load('corosync', 'corosync.conf.template')
+    # Cluster members
     member_section = ""
     for ip in ips:
         member_section += """
                 member {
                         memberaddr: %s
                 }""" % (ip)
+    # Quorum members
     quorum_member_section = """
                 nodelist {"""
     for idx,ip in enumerate(ips):
@@ -412,6 +414,95 @@ def fix_corosync(*args, **kwargs):
     # 4. Verifying good state
     print "Verifying that the cluster is in a good state. If the following command outputs messages, something is wrong..."
     node_ssh(name, 0, 'sudo', 'crm_verify', '-L', pem=pemfile)
+
+
+
+def add_service(*args, **kwargs):
+    """cluster add service cluster_name service_id [--pem=/path/to/pem.key] [--] command to run
+
+    Add a service to run on the cluster. The service needs to be
+    assigned a unique id (a string) and takes the form of a command
+    (which should be able to be shutdown via signals). If the command
+    requires parameters of the form --setting=value, make sure you add
+    -- before the command so they aren't used as arguments to this
+    command. You should also be sure that the command's binary is
+    specified as a full path.
+    """
+
+    cname, service_name, target_node, service_cmd = arguments.parse_or_die(add_service, [str, str, str], rest=True, *args)
+    pemfile = os.path.expanduser(config.kwarg_or_get('pem', kwargs, 'SIRIKATA_CLUSTER_PEMFILE'))
+
+    if not len(service_cmd):
+        print "You need to specify a command for the service"
+        exit(1)
+    if not os.path.isabs(service_cmd[0]):
+        print "The path to the service's binary isn't absolute."
+        exit(1)
+
+    # Make sure this cluster is in "opt in" mode, i.e. that services
+    # won't be run anywhere, only where we say it's ok to
+    # (i.e. default rule is -INF score)
+    retcode = node_ssh(cname, 0, 'sudo', 'crm_attribute', '--attr-name', 'symmetric-cluster', '--attr-value', 'false')
+    if retcode != 0:
+        print "Couldn't set cluster to opt-in mode."
+        return retcode
+
+    service_binary = service_cmd[0]
+    # Args need to go into a single quoted string parameter, they need
+    # quotes escaped.
+    # FIXME this doesn't properly handle already escaped quotes...
+    service_args = (' '.join(service_cmd[1:])).replace('"', '\"')
+
+    retcode = node_ssh(cname, 0,
+                       'sudo', 'crm', 'configure', 'primitive',
+                       service_name, 'ocf:heartbeat:anything',
+                       'params',
+                       'binfile=' + service_binary,
+                       'cmdline_options="' + service_args + '"'
+                       )
+    if retcode != 0:
+        print "Failed to add cluster service"
+        return retcode
+
+    # Add a location constraint. Nothing gets instantiated until here
+    # because we're set in opt-in mode. Without the location
+    # constraint, everything gets -INF score.
+    retcode = node_ssh(cname, 0,
+                       'sudo', 'crm', 'configure', 'location',
+                       service_name + '-location', service_name,
+                       '100:', target_node # value is arbitrary != -INF
+                       )
+
+    return retcode
+
+def remove_service(*args, **kwargs):
+    """cluster remove service cluster_name service_id [--pem=/path/to/pem.key]
+
+    Remove a service from the cluster.
+    """
+
+    cname, service_name = arguments.parse_or_die(remove_service, [str, str], *args)
+    pemfile = os.path.expanduser(config.kwarg_or_get('pem', kwargs, 'SIRIKATA_CLUSTER_PEMFILE'))
+
+    # Remove location constraint
+    retcode = node_ssh(cname, 0,
+                       'sudo', 'crm', 'configure',
+                       'delete', service_name + '-location'
+                       )
+    if retcode != 0:
+        print "Failed to remove location constraint, but still trying to remove the service..."
+
+    # Need to give it some time to shut down the process
+    time.sleep(6)
+
+    retcode = node_ssh(cname, 0,
+                       'sudo', 'crm', 'configure',
+                       'delete', service_name
+                       )
+    if retcode != 0:
+        print "Failed to remove service."
+    return retcode
+
 
 def terminate(*args, **kwargs):
     """cluster nodes terminate name

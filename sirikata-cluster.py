@@ -34,6 +34,8 @@ handlers = {
     'cluster node ssh' : cluster.node_ssh,
     'cluster ssh' : cluster.ssh,
     'cluster fix corosync' : cluster.fix_corosync,
+    'cluster add service' : cluster.add_service,
+    'cluster remove service' : cluster.remove_service,
     'cluster nodes terminate' : cluster.terminate,
     'cluster destroy' : cluster.destroy,
 
