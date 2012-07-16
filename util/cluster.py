@@ -452,6 +452,18 @@ def fix_corosync(*args, **kwargs):
     node_ssh(name, 0, 'sudo', 'crm_verify', '-L', pem=pemfile)
 
 
+def status(*args, **kwargs):
+    """cluster status cluster_name [--pem=/path/to/key.pem]
+
+    Give status of the cluster. This just runs crm_mon -1 on one of the cluster nodes.
+    """
+
+    name = arguments.parse_or_die(status, [str], *args)
+    pemfile = os.path.expanduser(config.kwarg_or_get('pem', kwargs, 'SIRIKATA_CLUSTER_PEMFILE'))
+
+    return node_ssh(name, 0, 'sudo', 'crm_mon', '-1', pem=pemfile)
+
+
 
 def add_service(*args, **kwargs):
     """cluster add service cluster_name service_id [--pem=/path/to/pem.key] [--] command to run

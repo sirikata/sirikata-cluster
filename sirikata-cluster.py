@@ -37,6 +37,7 @@ handlers = {
     'cluster fix corosync' : cluster.fix_corosync,
     'cluster add service' : cluster.add_service,
     'cluster remove service' : cluster.remove_service,
+    'cluster status' : cluster.status,
     'cluster nodes terminate' : cluster.terminate,
     'cluster destroy' : cluster.destroy,
 
