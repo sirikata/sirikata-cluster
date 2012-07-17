@@ -522,11 +522,18 @@ def add_service(*args, **kwargs):
     # Add a location constraint. Nothing gets instantiated until here
     # because we're set in opt-in mode. Without the location
     # constraint, everything gets -INF score.
-    retcode = node_ssh(cname, 0,
-                       'sudo', 'crm', 'configure', 'location',
-                       service_name + '-location', service_name,
-                       '100:', target_node # value is arbitrary != -INF
-                       )
+    if target_node == 'any': # allow it to run on any node
+        retcode = node_ssh(cname, 0,
+                           'sudo', 'crm', 'configure', 'location',
+                           service_name + '-location', service_name,
+                           'rule', '50:', 'defined', '\#uname' # should be defined everywhere
+                           )
+    else: # force to a particular node
+        retcode = node_ssh(cname, 0,
+                           'sudo', 'crm', 'configure', 'location',
+                           service_name + '-location', service_name,
+                           '100:', target_node # value is arbitrary != -INF
+                           )
 
     return retcode
 
