@@ -50,6 +50,7 @@ class sirikata {
     path => [ '/bin', '/usr/bin' ],
     user => 'ubuntu',
     unless => 'test -f /home/ubuntu/sirikata/bin/space', # Reasonable sanity check
+    subscribe => File['/home/ubuntu/sirikata.tar.bz2'],
     require => File['/home/ubuntu/sirikata.tar.bz2', '/home/ubuntu/sirikata'],
   }
 
