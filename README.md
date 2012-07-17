@@ -85,8 +85,8 @@ which will leave it in /etc/corosync/authkey. We're going to copy it
 to the nodes automatically, we just need to deposit it in the right
 location:
 
-    mkdir -p /etc/puppet/files/etc/corosync
-    cp /etc/corosync/authkey /etc/puppet/files/etc/corosync/
+    mkdir -p /etc/puppet/modules/sirikata/files/etc/corosync
+    cp /etc/corosync/authkey /etc/puppet/modules/sirikata/files/etc/corosync/
 
 
 Sirikata Packaging
@@ -107,10 +107,10 @@ top level, e.g.,
 
 Then place this in your puppet files directory under
 home/ubuntu/sirikata.tar.bz2. On a default puppet install that will be
-at /etc/puppet/files/home/ubuntu/sirikata.tar.bz2, e.g.,
+at /etc/puppet/modules/sirikata/files/home/ubuntu/sirikata.tar.bz2, e.g.,
 
-    > sudo mkdir -p /etc/puppet/files/home/ubuntu
-    > sudo cp sirikata.tar.bz2 /etc/puppet/files/home/ubuntu/
+    > sudo mkdir -p /etc/puppet/modules/sirikata/files/home/ubuntu
+    > sudo cp sirikata.tar.bz2 /etc/puppet/modules/sirikata/files/home/ubuntu/
 
 That's it. If you need to update this file for a running cluster, copy
 a new one into place and force all the puppets on your cluster to

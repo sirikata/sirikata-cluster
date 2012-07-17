@@ -5,7 +5,7 @@ import os, subprocess
 import puppet
 
 def package(*args, **kwargs):
-    """sirikata package /path/to/installed/sirikata [--puppet-path=/etc/puppet/] [--notify-puppets=cluster_name]
+    """sirikata package /path/to/installed/sirikata [--puppet-path=/etc/puppet] [--notify-puppets=cluster_name]
 
     Package a version of Sirikata installed in the given path and set
     it up with Puppet for distribution to puppet agent nodes.
@@ -38,7 +38,7 @@ def package(*args, **kwargs):
     subprocess.call(['tar', '-cjf', 'sirikata.tar.bz2', './bin', './lib', './share'], cwd=installed_path)
 
     # Make sure we have a place to put the file
-    dest_dir = os.path.join(puppet_base_path, 'files', 'home', 'ubuntu')
+    dest_dir = os.path.join(puppet_base_path, 'modules', 'sirikata', 'files', 'home', 'ubuntu')
     if not os.path.exists(dest_dir):
         # Need root for this, so we have to do it through subprocess
         subprocess.call(['sudo', 'mkdir', '-p', dest_dir])

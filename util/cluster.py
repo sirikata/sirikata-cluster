@@ -366,7 +366,7 @@ def members_address(*args, **kwargs):
 
     corosync_conf = corosync_conf.replace('{{{MEMBERS}}}', member_section)
     corosync_conf = corosync_conf.replace('{{{QUORUM_MEMBERS}}}', quorum_member_section)
-    data.save(corosync_conf, 'puppet', 'templates', 'corosync.conf')
+    data.save(corosync_conf, 'puppet', 'modules', 'sirikata', 'templates', 'corosync.conf')
 
     print
     print "These are the addresses I found:", ips

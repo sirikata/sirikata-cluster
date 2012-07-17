@@ -1,4 +1,4 @@
-class default_node {
+class sirikata {
 
   include ntp
 
@@ -37,7 +37,7 @@ class default_node {
     ensure => file,
     owner => 'ubuntu',
     group => 'ubuntu',
-    source  => "puppet:///files/home/ubuntu/sirikata.tar.bz2",
+    source  => "puppet:///modules/sirikata/home/ubuntu/sirikata.tar.bz2",
   }
   file { '/home/ubuntu/sirikata':
     ensure => directory,
@@ -71,7 +71,7 @@ class default_node {
 
   file { '/etc/corosync/authkey':
     ensure => file,
-    source  => "puppet:///files/etc/corosync/authkey",
+    source  => "puppet:///modules/sirikata/etc/corosync/authkey",
     mode => '0400',
     owner => 'root',
     group => 'root',
@@ -79,7 +79,7 @@ class default_node {
 
   file { '/usr/lib/ocf/resource.d/sirikata':
     ensure => file,
-    source  => "puppet:///files/usr/lib/ocf/resource.d/sirikata",
+    source  => "puppet:///modules/sirikata/usr/lib/ocf/resource.d/sirikata",
     owner => 'root',
     group => 'root',
     recurse => true,
