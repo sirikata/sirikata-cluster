@@ -96,6 +96,8 @@ def create_security_group(*args, **kwargs):
     ensure_rule('tcp', 8139, 8139, '0.0.0.0/0')
     # Sirikata: TCP 7000-10000
     ensure_rule('tcp', 7000, 10000, '0.0.0.0/0')
+    # Redis
+    ensure_rule('tcp', 6379, 6379, '0.0.0.0/0')
 
     # Also add the node itself as having complete access
     ensure_rule(src_group=sg)
@@ -120,6 +122,13 @@ def create(*args, **kwargs):
                            group=group, ami=ami,
                            puppet_master=puppet_master)
     cc.save()
+
+    # Make sure we have a nodes config for puppet. Not needed here,
+    # but it's a convenient place to make sure we have it done since
+    # nothing else with the cluster can happen until this is called
+    puppet.generate_default_node_config()
+
+    return 0
 
 def boot(*args, **kwargs):
     """cluster nodes boot name target_node [--wait-timeout=300 --pem=/path/to/key.pem]
@@ -605,6 +614,48 @@ def remove_service(*args, **kwargs):
     return retcode
 
 
+def set_node_type(*args, **kwargs):
+    """cluster node set type cluster_name node nodetype [--pem=/path/to/pem.key]
+
+    Set the given node (by index, hostname, IP, etc) to be of the
+    specified node type in Puppet, e.g. setting sirikata_redis to make
+    it a Redis server. Setting to 'default' reverts to the original config.
+    """
+
+    name, nodeid, nodetype = arguments.parse_or_die(set_node_type, [str, str, str], *args)
+    pemfile = os.path.expanduser(config.kwarg_or_get('pem', kwargs, 'SIRIKATA_CLUSTER_PEMFILE'))
+
+    # Explicit check for known types so we don't get our config into a bad state
+    if nodetype not in ['default', 'sirikata_redis']:
+        print "The specified node type (%s) isn't known." % (nodetype)
+        return 1
+
+    cc = ClusterConfigFile(name)
+    if 'instances' not in cc.state:
+        print "No active instances were found, are you sure this cluster is currently running?"
+        exit(1)
+
+    conn = EC2Connection(config.AWS_ACCESS_KEY_ID, config.AWS_SECRET_ACCESS_KEY)
+
+    # Update entry in local storage so we can update later
+    if 'node-types' not in cc.state: cc.state['node-types'] = {}
+    inst = get_node(cc, conn, nodeid)
+    if nodetype == 'default':
+        if pacemaker_id(inst) in cc.state['node-types']:
+            del cc.state['node-types'][pacemaker_id(inst)]
+    else:
+        cc.state['node-types'][pacemaker_id(inst)] = nodetype
+    cc.save()
+
+    # Generate config
+    node_config = ''.join(["node '%s' inherits %s {}" % (pacemakerid,nt) for pacemakerid,nt in cc.state['node-types'].iteritems()])
+    data.save(node_config, 'puppet', 'manifests', 'nodes.pp')
+
+    pem_kwargs = {}
+    if pemfile is not None: pem_kwargs['pem'] = pemfile
+    return puppet.update(name, **pem_kwargs)
+
+
 def terminate(*args, **kwargs):
     """cluster nodes terminate name
 
@@ -627,6 +678,7 @@ def terminate(*args, **kwargs):
         print "Terminated Instances:", terminated
         print "Unterminated:", list(set(cc.state['instances']).difference(set(terminated)))
 
+    if 'node-types' in cc.state: del cc.state['node-types']
     del cc.state['instances']
     del cc.state['reservation']
 

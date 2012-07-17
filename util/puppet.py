@@ -7,6 +7,12 @@ import os.path, subprocess, sys
 # between cluster.py and puppet.py
 setattr(cluster, 'puppet', sys.modules[__name__])
 
+def generate_default_node_config():
+    """Generates a default empty node configuration (all nodes as default class) if a node config doesn't exist yet."""
+
+    if not data.exists('puppet', 'manifests', 'nodes.pp'):
+        data.save('', 'puppet', 'manifests', 'nodes.pp')
+
 def master_config(*args, **kwargs):
     """puppet master config [--path=/etc/puppet/] [--yes]
 
@@ -60,6 +66,9 @@ def master_config(*args, **kwargs):
             existing_fileserver_conf_lines += [ '[files]', '  allow 0.0.0.0/0']
         # We need root to write the file...
         subprocess.call(['sudo', '/bin/bash', '-c', 'echo "%s" > %s' % ('\n'.join(existing_fileserver_conf_lines), fileserver_conf_path)])
+
+    # Make sure we have a nodes configuration
+    generate_default_node_config()
 
     # We need to add/replace data. Here we don't ask the user, we just copy all the data into place
     print "Copying data %s -> %s" % ('data/puppet/', puppet_base_path)
