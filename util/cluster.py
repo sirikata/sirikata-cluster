@@ -205,6 +205,44 @@ def get_all_ips(cc, conn):
     instances = get_all_instances(cc, conn)
     return dict([(inst.id, inst.ip_address) for inst in instances.values()])
 
+def get_node(cc, conn, node_name):
+    '''Returns a node's instance info based on any of a number of
+    'names'. A pure number will be used directly as an index. The name
+    can also match the node's id, private or public IP or dns name, or
+    it's pacemaker ID (which is based on the internal IP).
+    '''
+
+    instances = get_all_instances(cc, conn)
+    try:
+        idx = int(node_name)
+        return instances[cc.state['instances'][idx]]
+    except:
+        pass
+    for inst in instances.values():
+        if inst.private_dns_name.startswith(node_name) or \
+                node_name == inst.ip_address or \
+                node_name == inst.private_ip_address or \
+                node_name == inst.dns_name or \
+                node_name == inst.id:
+            return inst
+    raise Exception("Couldn't find node '" + node_name + "'")
+
+def get_node_index(cc, conn, node_name):
+    '''Returns a node index based on any of a number of 'names'. A
+    pure number will be used directly as an index. The name can also
+    match the node's id, private or public IP or dns name, or it's
+    pacemaker ID (which is based on the internal IP).
+    '''
+    inst = get_node(cc, conn, node_name).index
+    return cc.state['instances'].index(inst.id)
+
+def pacemaker_id(inst):
+    assert( inst.private_dns_name.endswith('compute-1.internal') )
+    return inst.private_dns_name.replace('.compute-1.internal', '')
+
+def get_node_pacemaker_id(cc, conn, node_name):
+    return pacemaker_id(get_node(cc, conn, node_name))
+
 def wait_pingable(*args, **kwargs):
     '''Wait for nodes to become pingable, with an optional timeout.'''
 
@@ -360,10 +398,6 @@ def members_info(*args, **kwargs):
     conn = EC2Connection(config.AWS_ACCESS_KEY_ID, config.AWS_SECRET_ACCESS_KEY)
     instances = get_all_instances(cc, conn)
 
-    def pacemaker_id(inst):
-        assert( inst.private_dns_name.endswith('compute-1.internal') )
-        return inst.private_dns_name.replace('.compute-1.internal', '')
-
     instances = [
         {
             'id' : inst.id,
@@ -466,7 +500,7 @@ def status(*args, **kwargs):
 
 
 def add_service(*args, **kwargs):
-    """cluster add service cluster_name service_id [--pem=/path/to/pem.key] [--user=ubuntu] [--cwd=/path/to/execute] [--] command to run
+    """cluster add service cluster_name service_id target_node|any [--pem=/path/to/pem.key] [--user=ubuntu] [--cwd=/path/to/execute] [--] command to run
 
     Add a service to run on the cluster. The service needs to be
     assigned a unique id (a string) and takes the form of a command
@@ -491,6 +525,11 @@ def add_service(*args, **kwargs):
     if not os.path.isabs(service_cmd[0]):
         print "The path to the service's binary isn't absolute."
         exit(1)
+
+    if target_node != 'any':
+        cc = ClusterConfigFile(cname)
+        conn = EC2Connection(config.AWS_ACCESS_KEY_ID, config.AWS_SECRET_ACCESS_KEY)
+        target_node_pacemaker_id = get_node_pacemaker_id(cc, conn, target_node)
 
     # Make sure this cluster is in "opt in" mode, i.e. that services
     # won't be run anywhere, only where we say it's ok to
@@ -532,7 +571,7 @@ def add_service(*args, **kwargs):
         retcode = node_ssh(cname, 0,
                            'sudo', 'crm', 'configure', 'location',
                            service_name + '-location', service_name,
-                           '100:', target_node # value is arbitrary != -INF
+                           '100:', target_node_pacemaker_id # value is arbitrary != -INF
                            )
 
     return retcode
