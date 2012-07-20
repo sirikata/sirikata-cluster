@@ -24,12 +24,14 @@ Usage: sirikata-cluster.py command [args]
 
 Available commands:
 """
-    for k,v in handlers.items():
+    for k,v in handlers:
         print k
     print
     exit(code)
 
 
+# Create map of handlers by name for easy lookup
+handlers_map = dict(handlers)
 
 # Parse the command
 args = list(sys.argv)
@@ -43,10 +45,10 @@ if not args:
 command = None
 for nparts in range(1, len(args)+1):
     command = ' '.join(args[0:nparts])
-    if command in handlers:
+    if command in handlers_map:
         args = args[nparts:]
         break
-if command not in handlers:
+if command not in handlers_map:
     usage()
 
 # Split remaining args as positional and keyword
@@ -72,4 +74,4 @@ for arg in args:
         kwargs[k] = v
     else:
         pargs.append(arg)
-exit(handlers[command](*pargs, **kwargs))
+exit(handlers_map[command](*pargs, **kwargs))
