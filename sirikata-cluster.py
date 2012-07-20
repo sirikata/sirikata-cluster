@@ -6,17 +6,8 @@ Usage: sirikata-cluster.py command [args]
 This is the driver script for sirikata-cluster.
 """
 
-# Sanity check dependencies
-try:
-    from boto.ec2.connection import EC2Connection
-except:
-    print "Couldn't find required dependency: boto. Check the README for how to install dependencies."
-    exit(1)
-
-import util.config as config
-import util.cluster as cluster
-import util.puppet as puppet
-import util.sirikata as sirikata
+import cluster.util.config as config
+import cluster.ec2 as ec2
 import sys
 
 # Parse config options, currently only from the environment variables
@@ -24,30 +15,8 @@ config.env()
 # Check that basic set of configuration options are available
 config.check_config()
 
-
 # Setup all our command handlers
-handlers = {
-    'cluster security create' : cluster.create_security_group,
-    'cluster create' : cluster.create,
-    'cluster nodes boot' : cluster.boot,
-    'cluster members address list' : cluster.members_address,
-    'cluster members info' : cluster.members_info,
-    'cluster node ssh' : cluster.node_ssh,
-    'cluster ssh' : cluster.ssh,
-    'cluster fix corosync' : cluster.fix_corosync,
-    'cluster add service' : cluster.add_service,
-    'cluster remove service' : cluster.remove_service,
-    'cluster node set type' : cluster.set_node_type,
-    'cluster status' : cluster.status,
-    'cluster nodes terminate' : cluster.terminate,
-    'cluster destroy' : cluster.destroy,
-
-    'puppet master config' : puppet.master_config,
-    'puppet slaves restart' : puppet.slaves_restart,
-    'puppet update' : puppet.update,
-
-    'sirikata package' : sirikata.package
-}
+handlers = ec2.handlers
 
 def usage(code=1):
     print """

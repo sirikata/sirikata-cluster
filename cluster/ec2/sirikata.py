@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 
-import config, data, arguments
+import cluster.util.config as config
+import cluster.util.data as data
+import cluster.util.arguments as arguments
 import os, subprocess
 import puppet
 

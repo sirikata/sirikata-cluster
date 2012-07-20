@@ -1,11 +1,14 @@
 #!/usr/bin/env python
 
-import config, data, arguments, cluster
+import cluster.util.config as config
+import cluster.util.data as data
+import cluster.util.arguments as arguments
+import nodes
 import os.path, subprocess, sys
 
 # This is gross, but addresses the run-time circular dependency
 # between cluster.py and puppet.py
-setattr(cluster, 'puppet', sys.modules[__name__])
+setattr(nodes, 'puppet', sys.modules[__name__])
 
 def generate_default_node_config():
     """Generates a default empty node configuration (all nodes as default class) if a node config doesn't exist yet."""
@@ -89,7 +92,7 @@ def slaves_restart(*args, **kwargs):
     name = arguments.parse_or_die(slaves_restart, [str], *args)
     pemfile = os.path.expanduser(config.kwarg_or_get('pem', kwargs, 'SIRIKATA_CLUSTER_PEMFILE'))
 
-    cluster.ssh(name, 'sudo', 'service', 'puppet', 'restart', pem=pemfile)
+    nodes.ssh(name, 'sudo', 'service', 'puppet', 'restart', pem=pemfile)
 
 
 def update(*args, **kwargs):
