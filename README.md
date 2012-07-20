@@ -138,7 +138,7 @@ the appropriate settings. You can do this manually, but a simple (but
 relatively less secured) default configuration will work for a
 Sirikata cluster:
 
-    ./sirikata-cluster.py cluster security create "sirikata-cluster" "Cluster deployment of Sirikata including Corosync/Pacemaker and Puppet"
+    ./sirikata-cluster.py ec2 security create "sirikata-cluster" "Cluster deployment of Sirikata including Corosync/Pacemaker and Puppet"
 
 This command is useful since there are a few extra ports these scripts
 require for puppet, corosync, and pacemaker. It also opens up SSH and
@@ -146,7 +146,7 @@ a range of ports commonly used by Sirikata.
 
 Next, you can create a cluster specification:
 
-    ./sirikata-cluster.py cluster create mycluster 2 ahoy.stanford.edu my_key_pair --instance-type=t1.micro --group=default --ami=ami-82fa58eb
+    ./sirikata-cluster.py ec2 create mycluster 2 ahoy.stanford.edu my_key_pair --instance-type=t1.micro --group=default --ami=ami-82fa58eb
 
 The specification includes the name of the cluster (mycluster), number
 of nodes, puppet master host, a key pair used for ssh access, the
@@ -156,11 +156,11 @@ actually created any nodes yet.
 
 For that, just ask for the nodes to be booted:
 
-    ./sirikata-cluster.py cluster nodes boot mycluster
+    ./sirikata-cluster.py ec2 nodes boot mycluster
 
 While they're active, you can get an ssh prompt into one of the nodes:
 
-    ./sirikata-cluster.py cluster node ssh mycluster 1 [--pem=my_ec2_ssh_key.pem]
+    ./sirikata-cluster.py ec2 node ssh mycluster 1 [--pem=my_ec2_ssh_key.pem]
 
 where the number is the node index (starting at 0) and the pem file is
 the key pair file corresponding to the key pair name you specified in
@@ -183,7 +183,7 @@ make the cluster usable (stonith-enabled=false). We've wrapped this
 whole process into a single command (you can look at the code to see
 the individual steps):
 
-    ./sirikata-cluster.py cluster fix corosync mycluster [--pem=my_ec2_ssh_key.pem]
+    ./sirikata-cluster.py ec2 fix corosync mycluster [--pem=my_ec2_ssh_key.pem]
 
 (Note that this assumes a local puppet master in the default location).
 At this point, you should have the nodes ready for executing pacemaker
@@ -191,14 +191,14 @@ resources (i.e. services).
 
 When you're done with the nodes, terminate them:
 
-    ./sirikata-cluster.py cluster nodes terminate mycluster
+    ./sirikata-cluster.py ec2 nodes terminate mycluster
 
 You could revive the cluster by booting again, the cluster spec isn't
 destroyed when you terminat the nodes.
 
 Finally, you can actually destroy the cluster.
 
-    ./sirikata-cluster.py cluster destroy mycluster
+    ./sirikata-cluster.py ec2 destroy mycluster
 
 This step checks to make sure you haven't left the cluster running: it
 will notify you if it looks like something is still active. If it
