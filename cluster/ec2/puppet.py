@@ -74,8 +74,9 @@ def master_config(*args, **kwargs):
     generate_default_node_config()
 
     # We need to add/replace data. Here we don't ask the user, we just copy all the data into place
-    print "Copying data %s -> %s" % ('data/puppet/', puppet_base_path)
-    subprocess.call(['sudo', '/bin/bash', '-c', 'cp -r data/puppet/* %s/' % (puppet_base_path)])
+    puppet_local_data_path = data.path('puppet')
+    print "Copying data %s -> %s" % (puppet_local_data_path, puppet_base_path)
+    subprocess.call(['sudo', '/bin/bash', '-c', 'cp -r %s/* %s/' % (puppet_local_data_path, puppet_base_path)])
 
     # And restart the puppet master
     print "Restarting puppetmaster"
@@ -89,20 +90,20 @@ def slaves_restart(*args, **kwargs):
     kicking all slaves to reconfigure and re-run their settings.
     """
 
-    name = arguments.parse_or_die(slaves_restart, [str], *args)
+    name_or_config = arguments.parse_or_die(slaves_restart, [object], *args)
     pemfile = os.path.expanduser(config.kwarg_or_get('pem', kwargs, 'SIRIKATA_CLUSTER_PEMFILE'))
 
-    nodes.ssh(name, 'sudo', 'service', 'puppet', 'restart', pem=pemfile)
+    nodes.ssh(name_or_config, 'sudo', 'service', 'puppet', 'restart', pem=pemfile)
 
 
 def update(*args, **kwargs):
-    """puppet update cluster_name [--pem=/path/to/key.pem]
+    """puppet update cluster_name_or_config [--pem=/path/to/key.pem]
 
     Performs both master configuration and slave restart.
     """
 
-    name = arguments.parse_or_die(update, [str], *args)
+    name_or_config = arguments.parse_or_die(update, [object], *args)
     pemfile = os.path.expanduser(config.kwarg_or_get('pem', kwargs, 'SIRIKATA_CLUSTER_PEMFILE'))
 
     master_config('--yes')
-    slaves_restart(name, pem=pemfile)
+    slaves_restart(name_or_config, pem=pemfile)

@@ -30,7 +30,10 @@ def parse_or_die(cmd, types, *args, **kwargs):
     args_out = []
     for idx,typ,arg in zip(range(len(types)),types,args[0:len(types)]):
         try:
-            args_out.append( typ(arg) )
+            if typ == object:
+                args_out.append(arg)
+            else:
+                args_out.append( typ(arg) )
         except:
             print "Couldn't convert argument %d (%s) to %s" % (idx, arg, typ)
             exit(1)

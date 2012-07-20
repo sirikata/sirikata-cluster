@@ -7,7 +7,7 @@ import os, subprocess
 import puppet
 
 def package(*args, **kwargs):
-    """sirikata package /path/to/installed/sirikata [--puppet-path=/etc/puppet] [--notify-puppets=cluster_name]
+    """sirikata package /path/to/installed/sirikata [--puppet-path=/etc/puppet] [--notify-puppets=cluster_name_or_config]
 
     Package a version of Sirikata installed in the given path and set
     it up with Puppet for distribution to puppet agent nodes.

@@ -16,7 +16,7 @@ config.env()
 config.check_config()
 
 # Setup all our command handlers
-handlers = ec2.handlers
+handlers = ec2.NodeGroup.handlers
 
 def usage(code=1):
     print """

@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from groupconfig import EC2GroupConfig
 import cluster.util.config as config
 import cluster.util.data as data
 import cluster.util.arguments as arguments
@@ -9,42 +10,12 @@ import json, os, time, subprocess
 def instance_name(cname, idx):
     return cname + '-' + str(idx)
 
-class ClusterConfigFile(object):
-    '''Tracks info about a cluster, backed by a json file'''
-
-    param_names = ['name', 'size', 'keypair', 'instance_type', 'group', 'ami', 'puppet_master', 'state']
-
-    def __init__(self, name,
-                 size=None, keypair=None, instance_type=None, group=None, ami=None, puppet_master=None):
-        '''Specify either a name only, which loads from a file, or *all* the parameters'''
-        if not size: # if one other value isn't defined, must have file
-            values = json.load(open(self._filename(name), 'r'))
-            for name in self.param_names:
-                setattr(self, name, values[name])
-        else:
-            assert(name and size and keypair and instance_type and group and ami and puppet_master)
-            self.name = name
-            self.size = size
-            self.keypair = keypair
-            self.instance_type = instance_type
-            self.group = group
-            self.ami = ami
-            self.puppet_master = puppet_master
-
-            # Everything else is temporary/mutable state that we just
-            # want to keep track of for future operations
-            self.state = {}
-
-    def _filename(self, newname=None):
-        return '.cluster-config-' + (newname or self.name) + '.json'
-
-    def save(self):
-        data = dict([(name, getattr(self, name)) for name in self.param_names])
-        json.dump(data, open(self._filename(), 'w'), indent=4)
-
-    def delete(self):
-        os.remove(self._filename())
-
+def name_and_config(name_or_config):
+    '''Get a name and config given either a name or a config.'''
+    if isinstance(name_or_config, EC2GroupConfig):
+        return (name_or_config.name, name_or_config)
+    else:
+        return (name_or_config, EC2GroupConfig(name_or_config))
 
 def create_security_group(*args, **kwargs):
     """cluster security create security_group_name security_group_description
@@ -118,7 +89,7 @@ def create(*args, **kwargs):
     group = config.kwarg_or_get('group', kwargs, 'SECURITY_GROUP')
     ami = config.kwarg_or_get('ami', kwargs, 'BASE_AMI')
 
-    cc = ClusterConfigFile(name,
+    cc = EC2GroupConfig(name,
                            size=size, keypair=keypair,
                            instance_type=instance_type,
                            group=group, ami=ami,
@@ -133,7 +104,7 @@ def create(*args, **kwargs):
     return 0
 
 def boot(*args, **kwargs):
-    """cluster nodes boot name target_node [--wait-timeout=300 --pem=/path/to/key.pem]
+    """cluster nodes boot name_or_config [--wait-timeout=300 --pem=/path/to/key.pem]
 
     Boot a cluster's nodes. The command will block for wait-timeout
     seconds, or until all nodes reach a ready state (currently defined
@@ -145,11 +116,11 @@ def boot(*args, **kwargs):
     that is required for the nodes to reach a ready state.
     """
 
-    name, target_node = arguments.parse_or_die(boot, [str, str], *args)
+    name_or_config = arguments.parse_or_die(boot, [object], *args)
     timeout = config.kwarg_or_default('wait-timeout', kwargs, default=300)
     # Note pemfile is different from other places since it's only required with wait-timeout.
     pemfile = config.kwarg_or_get('pem', kwargs, 'SIRIKATA_CLUSTER_PEMFILE', default=None)
-    cc = ClusterConfigFile(name)
+    name, cc = name_and_config(name_or_config)
 
     if 'reservation' in cc.state or 'instances' in cc.state:
         print "It looks like you already have active nodes for this cluster..."
@@ -184,7 +155,7 @@ def boot(*args, **kwargs):
 
     if timeout > 0:
         print "Waiting for nodes to become pingable..."
-        pingable = wait_pingable(name, timeout=timeout)
+        pingable = wait_pingable(cc, timeout=timeout)
         if pingable != 0: return pingable
         # Give a bit more time for the nodes to become ready, pinging
         # may happen before all services are finished starting
@@ -193,9 +164,9 @@ def boot(*args, **kwargs):
         print "Fixing corosync..."
         pem_kwargs = {}
         if pemfile is not None: pem_kwargs['pem'] = pemfile
-        fix_corosync(name, **pem_kwargs)
+        fix_corosync(cc, **pem_kwargs)
         print "Waiting for nodes to become ready..."
-        return wait_ready(name, timeout=timeout, **pem_kwargs)
+        return wait_ready(cc, timeout=timeout, **pem_kwargs)
 
     return 0
 
@@ -257,10 +228,10 @@ def get_node_pacemaker_id(cc, conn, node_name):
 def wait_pingable(*args, **kwargs):
     '''Wait for nodes to become pingable, with an optional timeout.'''
 
-    name = arguments.parse_or_die(wait_pingable, [str], *args)
+    name_or_config = arguments.parse_or_die(wait_pingable, [object], *args)
     timeout = int(config.kwarg_or_get('timeout', kwargs, 'SIRIKATA_PING_WAIT_TIMEOUT', default=0))
 
-    cc = ClusterConfigFile(name)
+    name, cc = name_and_config(name_or_config)
 
     conn = EC2Connection(config.AWS_ACCESS_KEY_ID, config.AWS_SECRET_ACCESS_KEY)
     # We need to loop until we can get IPs for all nodes
@@ -303,11 +274,11 @@ def wait_ready(*args, **kwargs):
     indicators that both Sirikata and Pacemaker are available. You
     should make sure all nodes are pingable before running this.'''
 
-    name = arguments.parse_or_die(wait_ready, [str], *args)
+    name_or_config = arguments.parse_or_die(wait_ready, [object], *args)
     timeout = int(config.kwarg_or_get('timeout', kwargs, 'SIRIKATA_READY_WAIT_TIMEOUT', default=0))
     pemfile = os.path.expanduser(config.kwarg_or_get('pem', kwargs, 'SIRIKATA_CLUSTER_PEMFILE'))
 
-    cc = ClusterConfigFile(name)
+    name, cc = name_and_config(name_or_config)
 
     conn = EC2Connection(config.AWS_ACCESS_KEY_ID, config.AWS_SECRET_ACCESS_KEY)
 
@@ -322,7 +293,7 @@ def wait_ready(*args, **kwargs):
         print 'Waiting on %s (%s)' % (node_id, str(ip))
         node_idx = cc.state['instances'].index(node_id)
         remote_cmd = ['test', '-f', '/home/ubuntu/ready/pacemaker', '&&', 'test', '-f', '/home/ubuntu/ready/sirikata']
-        retcode = node_ssh(name, node_idx, *remote_cmd, pem=pemfile)
+        retcode = node_ssh(cc, node_idx, *remote_cmd, pem=pemfile)
         if retcode == 0: # command success
             not_ready.remove(node_id)
             continue
@@ -338,15 +309,15 @@ def wait_ready(*args, **kwargs):
 
 
 def members_address(*args, **kwargs):
-    """cluster members address list cluster_name
+    """cluster members address list cluster_name_or_config
 
     Get a list of members addresses. This is used to seed the list of
     members in a corosync configuration (which you'll do through
     puppet).
     """
 
-    name = arguments.parse_or_die(members_address, [str], *args)
-    cc = ClusterConfigFile(name)
+    name_or_config = arguments.parse_or_die(members_address, [object], *args)
+    name, cc = name_and_config(name_or_config)
 
     if 'reservation' not in cc.state or 'instances' not in cc.state:
         print "It doesn't look like you've booted the cluster yet..."
@@ -394,13 +365,13 @@ directory. If you're running the Puppet master locally, run
 
 
 def members_info(*args, **kwargs):
-    """cluster members info cluster_name
+    """cluster members info cluster_name_or_config
 
     Get a list of members and their properties, in json.
     """
 
-    name = arguments.parse_or_die(members_info, [str], *args)
-    cc = ClusterConfigFile(name)
+    name_or_config = arguments.parse_or_die(members_info, [object], *args)
+    name, cc = name_and_config(name_or_config)
 
     if 'reservation' not in cc.state or 'instances' not in cc.state:
         print "It doesn't look like you've booted the cluster yet..."
@@ -428,15 +399,15 @@ def members_info(*args, **kwargs):
 
 
 def node_ssh(*args, **kwargs):
-    """cluster node ssh cluster_name index [--pem=/path/to/key.pem] [optional additional arguments give command just like with real ssh]
+    """cluster node ssh cluster_name_or_config index [--pem=/path/to/key.pem] [optional additional arguments give command just like with real ssh]
 
     Spawn an SSH process that SSHs into the node
     """
 
-    name, idx, remote_cmd = arguments.parse_or_die(node_ssh, [str, int], rest=True, *args)
+    name_or_config, idx, remote_cmd = arguments.parse_or_die(node_ssh, [object, int], rest=True, *args)
     pemfile = os.path.expanduser(config.kwarg_or_get('pem', kwargs, 'SIRIKATA_CLUSTER_PEMFILE'))
 
-    cc = ClusterConfigFile(name)
+    name, cc = name_and_config(name_or_config)
 
     if 'reservation' not in cc.state or 'instances' not in cc.state:
         print "It doesn't look like you've booted the cluster yet..."
@@ -453,7 +424,7 @@ def node_ssh(*args, **kwargs):
 
 
 def ssh(*args, **kwargs):
-    """cluster ssh cluster_name [--pem=/path/to/key.pem] [required additional arguments give command just like with real ssh]
+    """cluster ssh cluster_name_or_config [--pem=/path/to/key.pem] [required additional arguments give command just like with real ssh]
 
     Run an SSH command on every node in the cluster. Note that this
     currently doesn't parallelize at all, so it can be a bit
@@ -461,40 +432,40 @@ def ssh(*args, **kwargs):
     to execute.
     """
 
-    name, remote_cmd = arguments.parse_or_die(ssh, [str], rest=True, *args)
+    name_or_config, remote_cmd = arguments.parse_or_die(ssh, [object], rest=True, *args)
     pemfile = os.path.expanduser(config.kwarg_or_get('pem', kwargs, 'SIRIKATA_CLUSTER_PEMFILE'))
     if not remote_cmd:
         print "You need to add a command to execute across all the nodes."
         exit(1)
 
-    cc = ClusterConfigFile(name)
+    name, cc = name_and_config(name_or_config)
     for inst_idx in range(len(cc.state['instances'])):
-        node_ssh(name, inst_idx, *remote_cmd, pem=pemfile)
+        node_ssh(cc, inst_idx, *remote_cmd, pem=pemfile)
 
 
 def fix_corosync(*args, **kwargs):
-    """cluster fix corosync cluster_name [--pem=/path/to/key.pem]
+    """cluster fix corosync cluster_name_or_config [--pem=/path/to/key.pem]
 
     Fix the corosync configuration to use the set of nodes that have
     now booted up.
     """
 
-    name = arguments.parse_or_die(fix_corosync, [str], *args)
+    name_or_config = arguments.parse_or_die(fix_corosync, [object], *args)
     pemfile = os.path.expanduser(config.kwarg_or_get('pem', kwargs, 'SIRIKATA_CLUSTER_PEMFILE'))
 
     # Sequence is:
     # 1. Get the updated list of nodes and generate configuration
-    members_address(name)
+    members_address(name_or_config)
     # 2. Update our local puppet master
     puppet.master_config('--yes')
     # 3. Restart slave puppets, making them pick up the new config and
     # restart corosync
-    puppet.slaves_restart(name, pem=pemfile)
+    puppet.slaves_restart(name_or_config, pem=pemfile)
     print "Sleeping for 30 seconds to give the slave puppets a chance to recover..."
     time.sleep(30)
     # 4. Verifying good state
     print "Verifying that the cluster is in a good state. If the following command outputs messages, something is wrong..."
-    node_ssh(name, 0, 'sudo', 'crm_verify', '-L', pem=pemfile)
+    node_ssh(name_or_config, 0, 'sudo', 'crm_verify', '-L', pem=pemfile)
 
 
 def status(*args, **kwargs):
@@ -503,15 +474,15 @@ def status(*args, **kwargs):
     Give status of the cluster. This just runs crm_mon -1 on one of the cluster nodes.
     """
 
-    name = arguments.parse_or_die(status, [str], *args)
+    name_or_config = arguments.parse_or_die(status, [object], *args)
     pemfile = os.path.expanduser(config.kwarg_or_get('pem', kwargs, 'SIRIKATA_CLUSTER_PEMFILE'))
 
-    return node_ssh(name, 0, 'sudo', 'crm_mon', '-1', pem=pemfile)
+    return node_ssh(name_or_config, 0, 'sudo', 'crm_mon', '-1', pem=pemfile)
 
 
 
 def add_service(*args, **kwargs):
-    """cluster add service cluster_name service_id target_node|any [--pem=/path/to/pem.key] [--user=ubuntu] [--cwd=/path/to/execute] [--] command to run
+    """cluster add service cluster_name_or_config service_id target_node|any [--pem=/path/to/pem.key] [--user=ubuntu] [--cwd=/path/to/execute] [--] command to run
 
     Add a service to run on the cluster. The service needs to be
     assigned a unique id (a string) and takes the form of a command
@@ -525,7 +496,7 @@ def add_service(*args, **kwargs):
     cwd sets the working directory for the service
     """
 
-    cname, service_name, target_node, service_cmd = arguments.parse_or_die(add_service, [str, str, str], rest=True, *args)
+    name_or_config, service_name, target_node, service_cmd = arguments.parse_or_die(add_service, [object, str, str], rest=True, *args)
     user = config.kwarg_or_default('user', kwargs, default='ubuntu')
     cwd = config.kwarg_or_default('cwd', kwargs, default='/home/ubuntu')
     pemfile = os.path.expanduser(config.kwarg_or_get('pem', kwargs, 'SIRIKATA_CLUSTER_PEMFILE'))
@@ -537,15 +508,15 @@ def add_service(*args, **kwargs):
         print "The path to the service's binary isn't absolute."
         exit(1)
 
+    cname, cc = name_and_config(name_or_config)
     if target_node != 'any':
-        cc = ClusterConfigFile(cname)
         conn = EC2Connection(config.AWS_ACCESS_KEY_ID, config.AWS_SECRET_ACCESS_KEY)
         target_node_pacemaker_id = get_node_pacemaker_id(cc, conn, target_node)
 
     # Make sure this cluster is in "opt in" mode, i.e. that services
     # won't be run anywhere, only where we say it's ok to
     # (i.e. default rule is -INF score)
-    retcode = node_ssh(cname, 0, 'sudo', 'crm_attribute', '--attr-name', 'symmetric-cluster', '--attr-value', 'false')
+    retcode = node_ssh(cc, 0, 'sudo', 'crm_attribute', '--attr-name', 'symmetric-cluster', '--attr-value', 'false')
     if retcode != 0:
         print "Couldn't set cluster to opt-in mode."
         return retcode
@@ -556,7 +527,7 @@ def add_service(*args, **kwargs):
     # FIXME this doesn't properly handle already escaped quotes...
     service_args = (' '.join(service_cmd[1:])).replace('"', '\"')
 
-    retcode = node_ssh(cname, 0,
+    retcode = node_ssh(cc, 0,
                        'sudo', 'crm', 'configure', 'primitive',
                        service_name, 'ocf:sirikata:anything',
                        'params',
@@ -573,13 +544,13 @@ def add_service(*args, **kwargs):
     # because we're set in opt-in mode. Without the location
     # constraint, everything gets -INF score.
     if target_node == 'any': # allow it to run on any node
-        retcode = node_ssh(cname, 0,
+        retcode = node_ssh(cc, 0,
                            'sudo', 'crm', 'configure', 'location',
                            service_name + '-location', service_name,
                            'rule', '50:', 'defined', '\#uname' # should be defined everywhere
                            )
     else: # force to a particular node
-        retcode = node_ssh(cname, 0,
+        retcode = node_ssh(cc, 0,
                            'sudo', 'crm', 'configure', 'location',
                            service_name + '-location', service_name,
                            '100:', target_node_pacemaker_id # value is arbitrary != -INF
@@ -593,11 +564,11 @@ def remove_service(*args, **kwargs):
     Remove a service from the cluster.
     """
 
-    cname, service_name = arguments.parse_or_die(remove_service, [str, str], *args)
+    cname, service_name = arguments.parse_or_die(remove_service, [object, str], *args)
     pemfile = os.path.expanduser(config.kwarg_or_get('pem', kwargs, 'SIRIKATA_CLUSTER_PEMFILE'))
 
     # Remove location constraint
-    retcode = node_ssh(cname, 0,
+    retcode = node_ssh(cc, 0,
                        'sudo', 'crm', 'configure',
                        'delete', service_name + '-location'
                        )
@@ -607,7 +578,7 @@ def remove_service(*args, **kwargs):
     # Need to give it some time to shut down the process
     time.sleep(6)
 
-    retcode = node_ssh(cname, 0,
+    retcode = node_ssh(cc, 0,
                        'sudo', 'crm', 'configure',
                        'delete', service_name
                        )
@@ -617,14 +588,14 @@ def remove_service(*args, **kwargs):
 
 
 def set_node_type(*args, **kwargs):
-    """cluster node set type cluster_name node nodetype [--pem=/path/to/pem.key]
+    """cluster node set type cluster_name_or_config node nodetype [--pem=/path/to/pem.key]
 
     Set the given node (by index, hostname, IP, etc) to be of the
     specified node type in Puppet, e.g. setting sirikata_redis to make
     it a Redis server. Setting to 'default' reverts to the original config.
     """
 
-    name, nodeid, nodetype = arguments.parse_or_die(set_node_type, [str, str, str], *args)
+    name_or_config, nodeid, nodetype = arguments.parse_or_die(set_node_type, [object, str, str], *args)
     pemfile = os.path.expanduser(config.kwarg_or_get('pem', kwargs, 'SIRIKATA_CLUSTER_PEMFILE'))
 
     # Explicit check for known types so we don't get our config into a bad state
@@ -632,7 +603,7 @@ def set_node_type(*args, **kwargs):
         print "The specified node type (%s) isn't known." % (nodetype)
         return 1
 
-    cc = ClusterConfigFile(name)
+    name, cc = name_and_config(name_or_config)
     if 'instances' not in cc.state:
         print "No active instances were found, are you sure this cluster is currently running?"
         exit(1)
@@ -655,18 +626,18 @@ def set_node_type(*args, **kwargs):
 
     pem_kwargs = {}
     if pemfile is not None: pem_kwargs['pem'] = pemfile
-    return puppet.update(name, **pem_kwargs)
+    return puppet.update(cc, **pem_kwargs)
 
 
 def terminate(*args, **kwargs):
-    """cluster nodes terminate name
+    """cluster nodes terminate name_or_config
 
     Terminate an existing cluster
     """
 
-    name = arguments.parse_or_die(terminate, [str], *args)
+    name_or_config = arguments.parse_or_die(terminate, [object], *args)
 
-    cc = ClusterConfigFile(name)
+    name, cc = name_and_config(name_or_config)
     if 'instances' not in cc.state:
         print "No active instances were found, are you sure this cluster is currently running?"
         exit(1)
@@ -687,14 +658,15 @@ def terminate(*args, **kwargs):
     cc.save()
 
 def destroy(*args, **kwargs):
-    """cluster destroy name
+    """cluster destroy name_or_config
 
     Terminate an existing cluster
     """
 
-    name = arguments.parse_or_die(destroy, [str], *args)
+    name_or_config = arguments.parse_or_die(destroy, [object], *args)
 
-    cc = ClusterConfigFile(name)
+    name, cc = name_and_config(name_or_config)
+
     if 'reservation' in cc.state or 'instances' in cc.state:
         print "You have an active reservation or nodes, use 'cluster terminate nodes' before destroying this cluster spec."
         exit(1)
