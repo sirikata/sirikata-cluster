@@ -219,8 +219,8 @@ def get_node_index(cc, conn, node_name):
     return cc.state['instances'].index(inst.id)
 
 def pacemaker_id(inst):
-    assert( inst.private_dns_name.endswith('compute-1.internal') )
-    return inst.private_dns_name.replace('.compute-1.internal', '')
+    assert( inst.private_dns_name.find('.') != -1 )
+    return inst.private_dns_name[:inst.private_dns_name.find('.')]
 
 def get_node_pacemaker_id(cc, conn, node_name):
     return pacemaker_id(get_node(cc, conn, node_name))
