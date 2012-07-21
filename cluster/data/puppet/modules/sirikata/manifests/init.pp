@@ -122,6 +122,10 @@ class sirikata {
     command => "/usr/sbin/crm configure property stonith-enabled=false",
     unless => "/usr/sbin/crm_verify -L",
     require => Service['pacemaker'],
+    # We also want to make sure we rerun this if the command failed
+    # previously since pacemaker may get started before we have the
+    # proper corosync config
+    subscribe => Service['pacemaker']
   }
 
 
