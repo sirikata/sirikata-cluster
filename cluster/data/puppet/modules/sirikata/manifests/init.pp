@@ -67,7 +67,7 @@ class sirikata {
   file {'/etc/corosync/corosync.conf':
     ensure  => file,
     require => Package['corosync'],
-    content => template('corosync.conf'),
+    content => template('sirikata/corosync.conf'),
   }
 
   file { '/etc/corosync/authkey':
