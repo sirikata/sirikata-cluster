@@ -364,7 +364,7 @@ directory. If you're running the Puppet master locally, run
 """
 
 
-def members_info(*args, **kwargs):
+def members_info_data(*args, **kwargs):
     """cluster members info cluster_name_or_config
 
     Get a list of members and their properties, in json.
@@ -395,6 +395,15 @@ def members_info(*args, **kwargs):
             }
         for instid, inst in instances.iteritems()]
 
+    return instances
+
+def members_info(*args, **kwargs):
+    """cluster members info cluster_name_or_config
+
+    Get a list of members and their properties, in json.
+    """
+
+    instances = members_info_data(*args, **kwargs)
     print json.dumps(instances, indent=4)
 
 
@@ -503,10 +512,12 @@ def add_service(*args, **kwargs):
 
     if not len(service_cmd):
         print "You need to specify a command for the service"
-        exit(1)
+        return 1
     if not os.path.isabs(service_cmd[0]):
-        print "The path to the service's binary isn't absolute."
-        exit(1)
+        print "The path to the service's binary isn't absolute (%s)" % service_cmd[0]
+        print args
+        print service_cmd
+        return 1
 
     cname, cc = name_and_config(name_or_config)
     if target_node != 'any':
@@ -559,13 +570,15 @@ def add_service(*args, **kwargs):
     return retcode
 
 def remove_service(*args, **kwargs):
-    """cluster remove service cluster_name service_id [--pem=/path/to/pem.key]
+    """cluster remove service cluster_name_or_config service_id [--pem=/path/to/pem.key]
 
     Remove a service from the cluster.
     """
 
-    cname, service_name = arguments.parse_or_die(remove_service, [object, str], *args)
+    name_or_config, service_name = arguments.parse_or_die(remove_service, [object, str], *args)
     pemfile = os.path.expanduser(config.kwarg_or_get('pem', kwargs, 'SIRIKATA_CLUSTER_PEMFILE'))
+
+    cname, cc = name_and_config(name_or_config)
 
     # Remove location constraint
     retcode = node_ssh(cc, 0,

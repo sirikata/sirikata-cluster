@@ -34,5 +34,32 @@ class NodeGroup(cluster.util.NodeGroup):
     def __init__(self, name):
         super(NodeGroup, self).__init__(name=name)
 
+
+    def user(self):
+        return 'ubuntu'
+
+    def sirikata_path(self):
+        return '/home/ubuntu/sirikata'
+
+    def default_working_path(self):
+        return '/home/ubuntu'
+
+
+
     def boot(self, **kwargs):
         return (nodes.boot(self.config, **kwargs) == 0)
+
+    def nodes(self, **kwargs):
+        return nodes.members_info_data(self.config)
+
+    def add_service(self, name, target, command, user=None, cwd=None, **kwargs):
+        nkwargs = dict(kwargs)
+        if user is not None: nkwargs['user'] = user
+        if cwd is not None: nkwargs['cwd'] = cwd
+        return (nodes.add_service(self.config, name, target, *command, **nkwargs) == 0)
+
+    def remove_service(self, name, **kwargs):
+        return (nodes.remove_service(self.config, name) == 0)
+
+    def terminate(self, **kwargs):
+        return (nodes.terminate(self.config, **kwargs) == 0)

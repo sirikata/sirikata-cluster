@@ -55,5 +55,48 @@ class NodeGroup(object):
     def __init__(self, name, **kwargs):
         self.config = self.ConfigClass(name=name, **kwargs)
 
-    def boot():
-        raise Exception("Boot isn't properly defined")
+
+    # Properties
+
+    def user(self):
+        '''The user used to login, manage the node, and start services.'''
+        raise Exception("NodeGroup.user isn't properly defined")
+
+    def sirikata_path(self):
+        '''The path to the sirikata directory.'''
+        raise Exception("NodeGroup.sirikata_path isn't properly defined")
+
+    def default_working_path(self):
+        '''The default working path the user will be in when starting
+        services. This can be useful for placing input data or
+        extracting output data, although ideally you would use
+        absolute paths instead of relying on defaults.
+        '''
+        raise Exception("NodeGroup.default_working_path isn't properly defined")
+
+
+    # Operations
+
+    def boot(self, **kwargs):
+        '''If necessary, boot nodes and block until they have
+        completed configuration.'''
+
+        raise Exception("NodeGroup.boot isn't properly defined")
+
+    def nodes(self, **kwargs):
+        '''Get a list of node information.'''
+
+        raise Exception("NodeGroup.boot isn't properly defined")
+
+    def add_service(self, name, target, command, user, cwd, **kwargs):
+        '''Add a service, running the given command, to this node group.'''
+
+        raise Exception("NodeGroup.boot isn't properly defined")
+
+    def remove_service(self, name, **kwargs):
+        '''Remove a service from this node group.'''
+        raise Exception("NodeGroup.boot isn't properly defined")
+
+    def terminate(self, **kwargs):
+        '''If necessary, terminate the nodes in this node group.'''
+        raise Exception("NodeGroup.boot isn't properly defined")
