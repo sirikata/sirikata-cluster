@@ -18,7 +18,7 @@ def name_and_config(name_or_config):
         return (name_or_config, EC2GroupConfig(name_or_config))
 
 def create_security_group(*args, **kwargs):
-    """cluster security create security_group_name security_group_description
+    """ec2 security create security_group_name security_group_description
 
     Create a new security group with settings reasonable for a
     Sirikata cluster -- ssh access, corosync and puppet ports open,
@@ -77,7 +77,7 @@ def create_security_group(*args, **kwargs):
 
 
 def create(*args, **kwargs):
-    """cluster create name size puppet_master keypair [--instance-type=t1.micro] [--group=security_group] [--ami=i-x7395]
+    """ec2 create name size puppet_master keypair [--instance-type=t1.micro] [--group=security_group] [--ami=i-x7395]
 
     Create a new cluster. This just creates a record of the cluster
     and saves its properties, it doesn't actually allocate any nodes.
@@ -104,7 +104,7 @@ def create(*args, **kwargs):
     return 0
 
 def boot(*args, **kwargs):
-    """cluster nodes boot name_or_config [--wait-timeout=300 --pem=/path/to/key.pem]
+    """ec2 nodes boot name_or_config [--wait-timeout=300 --pem=/path/to/key.pem]
 
     Boot a cluster's nodes. The command will block for wait-timeout
     seconds, or until all nodes reach a ready state (currently defined
@@ -309,7 +309,7 @@ def wait_ready(*args, **kwargs):
 
 
 def members_address(*args, **kwargs):
-    """cluster members address list cluster_name_or_config
+    """ec2 members address list cluster_name_or_config
 
     Get a list of members addresses. This is used to seed the list of
     members in a corosync configuration (which you'll do through
@@ -365,7 +365,7 @@ directory. If you're running the Puppet master locally, run
 
 
 def members_info_data(*args, **kwargs):
-    """cluster members info cluster_name_or_config
+    """ec2 members info cluster_name_or_config
 
     Get a list of members and their properties, in json.
     """
@@ -398,7 +398,7 @@ def members_info_data(*args, **kwargs):
     return instances
 
 def members_info(*args, **kwargs):
-    """cluster members info cluster_name_or_config
+    """ec2 members info cluster_name_or_config
 
     Get a list of members and their properties, in json.
     """
@@ -408,7 +408,7 @@ def members_info(*args, **kwargs):
 
 
 def node_ssh(*args, **kwargs):
-    """cluster node ssh cluster_name_or_config index [--pem=/path/to/key.pem] [optional additional arguments give command just like with real ssh]
+    """ec2 node ssh cluster_name_or_config index [--pem=/path/to/key.pem] [optional additional arguments give command just like with real ssh]
 
     Spawn an SSH process that SSHs into the node
     """
@@ -433,7 +433,7 @@ def node_ssh(*args, **kwargs):
 
 
 def ssh(*args, **kwargs):
-    """cluster ssh cluster_name_or_config [--pem=/path/to/key.pem] [required additional arguments give command just like with real ssh]
+    """ec2 ssh cluster_name_or_config [--pem=/path/to/key.pem] [required additional arguments give command just like with real ssh]
 
     Run an SSH command on every node in the cluster. Note that this
     currently doesn't parallelize at all, so it can be a bit
@@ -453,7 +453,7 @@ def ssh(*args, **kwargs):
 
 
 def fix_corosync(*args, **kwargs):
-    """cluster fix corosync cluster_name_or_config [--pem=/path/to/key.pem]
+    """ec2 fix corosync cluster_name_or_config [--pem=/path/to/key.pem]
 
     Fix the corosync configuration to use the set of nodes that have
     now booted up.
@@ -478,7 +478,7 @@ def fix_corosync(*args, **kwargs):
 
 
 def status(*args, **kwargs):
-    """cluster status cluster_name [--pem=/path/to/key.pem]
+    """ec2 status cluster_name [--pem=/path/to/key.pem]
 
     Give status of the cluster. This just runs crm_mon -1 on one of the cluster nodes.
     """
@@ -491,7 +491,7 @@ def status(*args, **kwargs):
 
 
 def add_service(*args, **kwargs):
-    """cluster add service cluster_name_or_config service_id target_node|any [--pem=/path/to/pem.key] [--user=ubuntu] [--cwd=/path/to/execute] [--] command to run
+    """ec2 add service cluster_name_or_config service_id target_node|any [--pem=/path/to/pem.key] [--user=ubuntu] [--cwd=/path/to/execute] [--] command to run
 
     Add a service to run on the cluster. The service needs to be
     assigned a unique id (a string) and takes the form of a command
@@ -570,7 +570,7 @@ def add_service(*args, **kwargs):
     return retcode
 
 def remove_service(*args, **kwargs):
-    """cluster remove service cluster_name_or_config service_id [--pem=/path/to/pem.key]
+    """ec2 remove service cluster_name_or_config service_id [--pem=/path/to/pem.key]
 
     Remove a service from the cluster.
     """
@@ -601,7 +601,7 @@ def remove_service(*args, **kwargs):
 
 
 def set_node_type(*args, **kwargs):
-    """cluster node set type cluster_name_or_config node nodetype [--pem=/path/to/pem.key]
+    """ec2 node set type cluster_name_or_config node nodetype [--pem=/path/to/pem.key]
 
     Set the given node (by index, hostname, IP, etc) to be of the
     specified node type in Puppet, e.g. setting sirikata_redis to make
@@ -643,7 +643,7 @@ def set_node_type(*args, **kwargs):
 
 
 def terminate(*args, **kwargs):
-    """cluster nodes terminate name_or_config
+    """ec2 nodes terminate name_or_config
 
     Terminate an existing cluster
     """
@@ -671,7 +671,7 @@ def terminate(*args, **kwargs):
     cc.save()
 
 def destroy(*args, **kwargs):
-    """cluster destroy name_or_config
+    """ec2 destroy name_or_config
 
     Terminate an existing cluster
     """
