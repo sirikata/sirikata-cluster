@@ -24,7 +24,6 @@ class NodeGroupConfig(object):
         else:
             self.name = name
             for attrname in self.Attributes:
-                print attrname
                 assert((attrname == 'name' or attrname == 'state') or attrname in kwargs)
                 if (attrname == 'name' or attrname == 'state'): continue
                 setattr(self, attrname, kwargs[attrname])
@@ -87,6 +86,10 @@ class NodeGroup(object):
         '''Get a list of node information.'''
 
         raise Exception("NodeGroup.boot isn't properly defined")
+
+    def sync_sirikata(self, path):
+        '''Sync Sirikata archive or directory with the nodes in this cluster.'''
+        raise Exception("NodeGroup.sync_sirikata isn't properly defined")
 
     def add_service(self, name, target, command, user, cwd, **kwargs):
         '''Add a service, running the given command, to this node group.'''

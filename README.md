@@ -122,8 +122,17 @@ Assuming you don't have any special requirements such as additional
 files or unusual layout, you can use a helper command to do all this
 for you:
 
-    ./sirikata-cluster.py sirikata package /path/to/installed/sirikata
+    ./sirikata-cluster.py ec2 sirikata package /path/to/installed/sirikata
 
+If you have two different types of clusters, you can split it into
+steps:
+
+    # Generate package
+    ./sirikata-cluster.py sirikata package /path/to/installed/sirikata
+    # Distribute to ec2 cluster
+    ./sirikata-cluster.py ec2 sync sirikata /path/to/installed/sirikata/sirikata.tar.bz2 --notify-puppets=my-ec2-cluster
+    # Distribute to ad-hoc cluster
+    ./sirikata-cluster.py adhoc sync sirikata my-adhoc-cluster /path/to/installed/sirikata/sirikata.tar.bz2
 
 Clusters
 --------
@@ -132,6 +141,8 @@ This script isolates different clusters by using unique,
 human-readable names for each cluster, e.g. 'myworld'. All commands
 will take the cluster name as part of the command.
 
+
+### EC2 Clusters
 
 First, you'll need a security group to allocate nodes under which has
 the appropriate settings. You can do this manually, but a simple (but
@@ -204,3 +215,73 @@ This step checks to make sure you haven't left the cluster running: it
 will notify you if it looks like something is still active. If it
 exits cleanly, you can be sure the cluster nodes were properly
 terminated.
+
+
+### Ad-Hoc Clusters
+
+Ad-hoc clusters are built out of a set of nodes that you specify with
+properties on each, with default fall-back properties for convenience
+if all your nodes are configured identically.
+
+Creating an ad-hoc cluster can be complicated if you have variation
+between nodes and just because it requires more settings to be
+specified than EC2, where we can enforce a particular layout. To
+create a cluster:
+
+    ./sirikata-cluster.py adhoc create my-adhoc-cluster ewencp /home/ewencp/sirikata /home/ewencp host1.example.com host2.example.com '{ "dns_name" : "host3.example.com", "user" : "bob" }'
+
+The arguments are the cluster name, the default user, a directory to
+sync the Sirikata binaries to, and a default work directory where it's
+safe to save data and temporary files to. The rest of the arguments
+are node specifications. The first couple use the default settings and
+only need the hostname. In the future we'll be able to refer to them
+just by 'host1' and 'host2'. The third node needs special setting so
+we pass in a JSON string describing the node.
+
+Most commands work just like the EC2 versions. Where a node is
+required, you can specify it by index, ID, or full hostname. Available
+commands include listing member info, SSH to a single node, and
+running an SSH command across all nodes. As described above, you'll
+need to sync Sirikata before running any Sirikata services.
+
+Finally, similar to the EC2 cluster, you can destroy the entire thing:
+
+    ./sirikata-cluster.py adhoc destroy my-adhoc-cluster
+
+
+Running Services
+----------------
+
+All types of clusters support the same interface for adding and
+removing services:
+
+    ./sirikata-cluster.py clustertype add service cluster_name_or_config service_id target_node|any [--user=default_user] [--cwd=/path/to/execute] [--] command to run
+
+Some will accept additional keyword arguments, e.g., the EC2 version
+accepts --pem=/path/to/keyfile.pem to set the SSH key to use.
+
+Removing a service is also simple:
+
+    ./sirikata-cluster.py clustertype remove service cluster_name_or_config service_id
+
+
+Managing Clusters Programmatically
+----------------------------------
+
+The core functionality of clusters is exposed via the NodeGroup class
+(cluster/util/nodegroup.py) and it's implementations for each cluster
+type. You'll probably want to create the clusters manually, but you
+can then boot them, get lists of nodes, sync Sirikata binaries onto
+the cluster nodes, add and remove services, and shutdown the
+nodes. Once you've created the cluster configuration, using most of
+these are as simple as creating a NodeGroup object specifying the name
+of the cluster and calling a method, e.g.,
+
+    import cluster, os.path
+    cluster.util.config.env()
+    ng = cluster.ec2.NodeGroup('mycluster')
+    ng.add_service('space', 'any', [os.path.join(ng.sirikata_path(), 'bin', 'space')])
+
+Note that in this case we use the config utility to parse environment
+variables so they'll be used automatically, in this case to
+automatically use a pem file when managing the EC2 nodes.

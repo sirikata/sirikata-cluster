@@ -8,6 +8,7 @@ This is the driver script for sirikata-cluster.
 
 import cluster.util.config as config
 import cluster.ec2 as ec2
+import cluster.adhoc as adhoc
 import sys
 
 # Parse config options, currently only from the environment variables
@@ -16,7 +17,7 @@ config.env()
 config.check_config()
 
 # Setup all our command handlers
-handlers = ec2.NodeGroup.handlers
+handlers = ec2.NodeGroup.handlers + adhoc.NodeGroup.handlers
 
 def usage(code=1):
     print """
@@ -65,7 +66,7 @@ for arg in args:
     if arg == '--' and more_kwargs:
         more_kwargs = False
         continue
-    if more_kwargs and '=' in arg or arg.startswith('--'):
+    if more_kwargs and ('=' in arg or arg.startswith('--')):
         if '=' in arg:
             k,v = arg.split('=', 1)
         else:

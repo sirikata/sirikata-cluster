@@ -21,12 +21,17 @@ class NodeGroup(cluster.util.NodeGroup):
         ('ec2 status', nodes.status),
         ('ec2 nodes terminate', nodes.terminate),
         ('ec2 destroy', nodes.destroy),
+        ('ec2 sync sirikata', sirikata.sync_sirikata),
 
         ('puppet master config', puppet.master_config),
         ('puppet slaves restart', puppet.slaves_restart),
         ('puppet update', puppet.update),
 
-        ('sirikata package', sirikata.package)
+        # Version that only packages into a tar.bz2 but doesn't
+        # distribute. Needs to be included as a command somehwere, but
+        # doesn't belong to any one NodeGroup class, so here is as
+        # good as anywhere else
+        ('sirikata package', cluster.util.sirikata.package)
         ]
 
     ConfigClass = EC2GroupConfig
@@ -51,6 +56,9 @@ class NodeGroup(cluster.util.NodeGroup):
 
     def nodes(self, **kwargs):
         return nodes.members_info_data(self.config)
+
+    def sync_sirikata(self, path, **kwargs):
+        return (sirikata.sync_sirikata(self.config, path) == 0)
 
     def add_service(self, name, target, command, user=None, cwd=None, **kwargs):
         nkwargs = dict(kwargs)
