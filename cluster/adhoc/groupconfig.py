@@ -53,9 +53,6 @@ class AdHocGroupConfig(NodeGroupConfig):
             super(AdHocGroupConfig, self).__init__(name, **kwargs)
 
 
-    def default_working_path(self):
-        return '/home/' + self.user
-
     def workspace(self):
         '''Returns a workspace directory that won't be cleaned up
         automatically (i.e. not /tmp), is local to the machine

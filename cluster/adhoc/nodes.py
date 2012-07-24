@@ -169,7 +169,7 @@ def add_service(*args, **kwargs):
     cname, cc = name_and_config(name_or_config)
 
     user = config.kwarg_or_default('user', kwargs, default=cc.user)
-    cwd = config.kwarg_or_default('cwd', kwargs, default=cc.default_working_path())
+    cwd = config.kwarg_or_default('cwd', kwargs, default=cc.default_work_path)
     force_daemonize = bool(config.kwarg_or_default('force-daemonize', kwargs, default=False))
 
     if not len(service_cmd):

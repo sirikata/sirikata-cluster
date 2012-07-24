@@ -29,7 +29,7 @@ class NodeGroup(cluster.util.NodeGroup):
         return self.config.sirikata_path
 
     def default_working_path(self):
-        return self.config.default_working_path
+        return self.config.default_work_path
 
     def workspace(self):
         '''Returns a workspace directory that won't be cleaned up
