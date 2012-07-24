@@ -4,10 +4,10 @@
 import sys, os.path
 sys.path.append( os.path.dirname(os.path.dirname(os.path.abspath(__file__))) )
 
-import ec2
+import ec2, adhoc
 
 # List of cluster types (e.g. ec2, local (just localhost), grid
 # (simple ssh to a cluster), aggregate (meta-cluster built from
 # others), etc). Each is a subclass of cluster.util.NodeGroup which
 # can load a config and perform a basic set of shared functionality
-ClusterTypes = [ ec2.NodeGroup ]
+ClusterTypes = [ ec2.NodeGroup, adhoc.NodeGroup ]
