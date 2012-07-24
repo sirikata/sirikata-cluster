@@ -158,6 +158,11 @@ def add_service(*args, **kwargs):
 
     user specifies the user account that should execute the service
     cwd sets the working directory for the service
+
+    To make handling PID files easier, any appearance of PIDFILE in
+    your command arguments will be replaced with the path to the PID
+    file selected. For example, you might add --pid-file=PIDFILE as an
+    argument.
     """
 
     name_or_config, service_name, target_node, service_cmd = arguments.parse_or_die(add_service, [object, str, str], rest=True, *args)
@@ -165,6 +170,7 @@ def add_service(*args, **kwargs):
 
     user = config.kwarg_or_default('user', kwargs, default=cc.user)
     cwd = config.kwarg_or_default('cwd', kwargs, default=cc.default_working_path())
+    force_daemonize = bool(config.kwarg_or_default('force-daemonize', kwargs, default=False))
 
     if not len(service_cmd):
         print "You need to specify a command for the service"
@@ -187,16 +193,18 @@ def add_service(*args, **kwargs):
 
     pidfile = os.path.join(cc.workspace(), 'sirikata_%s.pid' % (service_name) )
 
+    daemon_cmd = ['start-stop-daemon', '--start',
+                  '--pidfile', pidfile,
+                  '--user', user,
+                  '--chdir', cwd,
+                  # '--test'
+                  ]
+    if force_daemonize:
+        daemon_cmd += ['--background', '--make-pidfile']
+    daemon_cmd += ['--exec', service_binary,
+                   '--'] + [arg.replace('PIDFILE', pidfile) for arg in service_cmd[1:]]
     retcode = node_ssh(cc, target_node,
-                       'start-stop-daemon', '--start',
-                       '--pidfile', pidfile,
-                       '--user', user,
-                       '--chdir', cwd,
-#                       '--test',
-                       '--background', '--make-pidfile',
-                       '--exec', service_binary,
-                       '--', *(service_cmd[1:])
-                       )
+                       *daemon_cmd)
     if retcode != 0:
         print "Failed to add cluster service"
         return retcode

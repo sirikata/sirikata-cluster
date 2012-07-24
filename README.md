@@ -255,10 +255,21 @@ Running Services
 All types of clusters support the same interface for adding and
 removing services:
 
-    ./sirikata-cluster.py clustertype add service cluster_name_or_config service_id target_node|any [--user=default_user] [--cwd=/path/to/execute] [--] command to run
+    ./sirikata-cluster.py clustertype add service cluster_name_or_config service_id target_node|any [--user=default_user] [--cwd=/path/to/execute] [--] command to run --pid-file=PIDFILE
 
-Some will accept additional keyword arguments, e.g., the EC2 version
-accepts --pem=/path/to/keyfile.pem to set the SSH key to use.
+You are responsible for making sure that the command you request is a
+daemon, i.e. that it will fork, disconnect from the parent, close
+stdin/out, etc. If you can't guarantee that, you can use
+--force-daemonize=true, but this is not reliable -- it may not catch
+errors during application startup. To avoid specifying PID file paths
+multiple times, the script will select the path (so it can find it
+during service removal) and replace any appearance of PIDFILE in the
+command arguments with that path. The example shows how the right
+value could be passed to a regular Sirikata binary.
+
+Some cluster types will accept additional keyword arguments, e.g., the
+EC2 version accepts --pem=/path/to/keyfile.pem to set the SSH key to
+use.
 
 Removing a service is also simple:
 
