@@ -225,7 +225,6 @@ def remove_service(*args, **kwargs):
     """
 
     name_or_config, service_name = arguments.parse_or_die(remove_service, [object, str], *args)
-    pemfile = os.path.expanduser(config.kwarg_or_get('pem', kwargs, 'SIRIKATA_CLUSTER_PEMFILE'))
 
     cname, cc = name_and_config(name_or_config)
 
