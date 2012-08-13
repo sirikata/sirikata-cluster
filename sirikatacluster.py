@@ -39,7 +39,7 @@ handlers_map = dict(handlers)
 # Parse the command
 args = list(sys.argv)
 # Get rid of everything up to this script name
-while args and args[0].endswith(__file__):
+while args and args[0].endswith('.py'):
     args.pop(0)
 if not args:
     usage()
