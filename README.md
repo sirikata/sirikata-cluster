@@ -228,11 +228,13 @@ between nodes and just because it requires more settings to be
 specified than EC2, where we can enforce a particular layout. To
 create a cluster:
 
-    ./sirikata-cluster.py adhoc create my-adhoc-cluster ewencp /home/ewencp/sirikata /home/ewencp host1.example.com host2.example.com '{ "dns_name" : "host3.example.com", "user" : "bob" }'
+    ./sirikata-cluster.py adhoc create my-adhoc-cluster ewencp /home/ewencp/sirikata /home/ewencp /disk/scratch host1.example.com host2.example.com '{ "dns_name" : "host3.example.com", "user" : "bob" }'
 
 The arguments are the cluster name, the default user, a directory to
-sync the Sirikata binaries to, and a default work directory where it's
-safe to save data and temporary files to. The rest of the arguments
+sync the Sirikata binaries to, a default work directory where it's
+safe to save data and temporary files to, and a path that can be used
+as scratch space but which *won't* be automatically cleaned up like
+/tmp. The rest of the arguments
 are node specifications. The first couple use the default settings and
 only need the hostname. In the future we'll be able to refer to them
 just by 'host1' and 'host2'. The third node needs special setting so

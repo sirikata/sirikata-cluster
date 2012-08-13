@@ -8,6 +8,7 @@ class AdHocGroupConfig(NodeGroupConfig):
                   'user', # Default user for ssh if none specified in per-node properties
                   'sirikata_path', # Default path we should install/run Sirikata from if none specified in per-node properties
                   'default_work_path', # Default path we should execute services in and allow them to store files in
+                  'default_scratch_path', # Default path for scratch data (e.g. pid files)
                   ]
 
     def __init__(self, name, **kwargs):
@@ -15,7 +16,8 @@ class AdHocGroupConfig(NodeGroupConfig):
         if kwargs:
             assert('nodes' in kwargs and \
                        'user' in kwargs and \
-                       'sirikata_path' in kwargs)
+                       'sirikata_path' in kwargs and \
+                       'default_scratch_path' in kwargs)
 
             # Filter the nodes definitions to ensure a regular structure
             nodes = []
@@ -58,7 +60,7 @@ class AdHocGroupConfig(NodeGroupConfig):
         automatically (i.e. not /tmp), is local to the machine
         (i.e. no NFS shares), and won't clutter up a user's directory
         if used for temporary files.'''
-        return '/disk/scratch1/sirikata/cluster'
+        return self.default_scratch_path
 
 
     def get_node(cc, node_name):

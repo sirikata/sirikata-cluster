@@ -18,20 +18,21 @@ def name_and_config(name_or_config):
 
 
 def create(*args, **kwargs):
-    """adhoc create name user sirikata_path default_work_path [list of nodes...]
+    """adhoc create name user sirikata_path default_work_path default_scratch_path [list of nodes...]
 
     Create a new cluster. This just creates a record of the cluster and saves
     its properties. default_work_path should be a directory where services can
     be run from and they can store temporary files.
     """
 
-    name, user, sirikata_path, default_work_path, nodes = arguments.parse_or_die(create, [str, str, str, str], rest=True, *args)
+    name, user, sirikata_path, default_work_path, default_scratch_path, nodes = arguments.parse_or_die(create, [str, str, str, str, str], rest=True, *args)
 
     cc = AdHocGroupConfig(name,
                           nodes=nodes,
                           user=user,
                           sirikata_path=sirikata_path,
-                          default_work_path=default_work_path)
+                          default_work_path=default_work_path,
+                          default_scratch_path=default_scratch_path)
     cc.save()
 
     return 0
