@@ -263,6 +263,10 @@ def remove_service(*args, **kwargs):
                        'start-stop-daemon', '--stop',
                        '--retry', 'TERM/6/KILL/5',
                        '--pidfile', pidfile,
+                       # oknodo allows a successful return if the
+                       # process couldn't actually be found, meaning
+                       # it probably crashed
+                       '--oknodo'
 #                       '--test',
                        )
 
