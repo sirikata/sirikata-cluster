@@ -5,8 +5,8 @@ class AdHocGroupConfig(NodeGroupConfig):
     TypeName = 'adhoc'
     Attributes = ['name', 'typename', 'size', 'state',
                   'nodes', # List of nodes or node properties
-                  'user', # Default user for ssh if none specified in per-node properties
-                  'sirikata_path', # Default path we should install/run Sirikata from if none specified in per-node properties
+                  'username', # Default user for ssh if none specified in per-node properties
+                  'default_sirikata_path', # Default path we should install/run Sirikata from if none specified in per-node properties
                   'default_work_path', # Default path we should execute services in and allow them to store files in
                   'default_scratch_path', # Default path for scratch data (e.g. pid files)
                   ]
@@ -15,8 +15,8 @@ class AdHocGroupConfig(NodeGroupConfig):
         # If we've got any non-name params, ensure we have the expected set
         if kwargs:
             assert('nodes' in kwargs and \
-                       'user' in kwargs and \
-                       'sirikata_path' in kwargs and \
+                       'username' in kwargs and \
+                       'default_sirikata_path' in kwargs and \
                        'default_scratch_path' in kwargs)
 
             # Filter the nodes definitions to ensure a regular structure
@@ -55,14 +55,6 @@ class AdHocGroupConfig(NodeGroupConfig):
             super(AdHocGroupConfig, self).__init__(name, **kwargs)
 
 
-    def workspace(self):
-        '''Returns a workspace directory that won't be cleaned up
-        automatically (i.e. not /tmp), is local to the machine
-        (i.e. no NFS shares), and won't clutter up a user's directory
-        if used for temporary files.'''
-        return self.default_scratch_path
-
-
     def get_node(cc, node_name):
         '''Returns a node's instance info based on any of a number of
         'names'. A pure number will be used directly as an index. The name
@@ -94,7 +86,26 @@ class AdHocGroupConfig(NodeGroupConfig):
         '''Helper that generates user@foo.com for ssh'ing into a
         machine, grabbing a default username if one is not already
         associated with the node.'''
-        user = self.user
-        if 'user' in node:
-            user = node['user']
-        return user + '@' + node['dns_name']
+        return self.user(node) + '@' + node['dns_name']
+
+
+
+    def user(self, node=None):
+        if node is None or 'username' not in node:
+            return self.username
+        return node['username']
+
+    def sirikata_path(self, node=None):
+        if node is None or 'sirikata_path' not in node:
+            return self.default_sirikata_path
+        return node['sirikata_path']
+
+    def default_working_path(self, node=None):
+        if node is None or 'default_working_path' not in node:
+            return self.default_work_path
+        return node['default_working_path']
+
+    def workspace_path(self, node=None):
+        if node is None or 'workspace_path' not in node:
+            return self.default_scratch_path
+        return node['workspace_path']

@@ -25,12 +25,12 @@ def create(*args, **kwargs):
     be run from and they can store temporary files.
     """
 
-    name, user, sirikata_path, default_work_path, default_scratch_path, nodes = arguments.parse_or_die(create, [str, str, str, str, str], rest=True, *args)
+    name, user, default_sirikata_path, default_work_path, default_scratch_path, nodes = arguments.parse_or_die(create, [str, str, str, str, str], rest=True, *args)
 
     cc = AdHocGroupConfig(name,
                           nodes=nodes,
-                          user=user,
-                          sirikata_path=sirikata_path,
+                          username=user,
+                          default_sirikata_path=default_sirikata_path,
                           default_work_path=default_work_path,
                           default_scratch_path=default_scratch_path)
     cc.save()
@@ -72,7 +72,11 @@ def node_ssh(*args, **kwargs):
 
     name, cc = name_and_config(name_or_config)
 
-    cmd = ["ssh", cc.node_ssh_address(cc.get_node(idx_or_name_or_node))] + [re.escape(x) for x in remote_cmd]
+    def escape(x):
+        '''Escaping rules are confusing...'''
+        if x.strip() == '&&' or x.strip() == '||': return x
+        return re.escape(x)
+    cmd = ["ssh", cc.node_ssh_address(cc.get_node(idx_or_name_or_node))] + [escape(x) for x in remote_cmd]
     return subprocess.call(cmd)
 
 
@@ -112,32 +116,36 @@ def sync_sirikata(*args, **kwargs):
         path = os.path.join(path, 'sirikata.tar.bz2')
 
     sirikata_archive_name = os.path.basename(path)
-    node_archive_path = os.path.join(cc.workspace(), sirikata_archive_name)
+    node_archive_path = [os.path.join(cc.workspace_path(node), sirikata_archive_name) for node in cc.nodes]
 
     # Make a single copy onto one of the nodes
     print "Copying data to node 0"
-    retcode = subprocess.call(['rsync', '--progress',
-                               path,
-                               cc.node_ssh_address(cc.get_node(0)) + ":" + node_archive_path])
+    cmd = ['rsync', '--progress',
+           path,
+           cc.node_ssh_address(cc.get_node(0)) + ":" + node_archive_path[0]]
+    retcode = subprocess.call(cmd)
     if retcode != 0:
         print "Failed to rsync to first node."
+        print "Command was:", cmd
         return retcode
 
     for inst_idx in range(1, len(cc.nodes)):
         print "Copying data to node %d" % (inst_idx)
-        retcode = subprocess.call(['rsync', '--progress',
-                                   cc.node_ssh_address(cc.get_node(0)) + ":" + node_archive_path,
-                                   cc.node_ssh_address(cc.get_node(inst_idx)) + ":" + node_archive_path])
+        cmd = ['rsync', '--progress',
+               cc.node_ssh_address(cc.get_node(0)) + ":" + node_archive_path[0],
+               cc.node_ssh_address(cc.get_node(inst_idx)) + ":" + node_archive_path[inst_idx]]
+        retcode = subprocess.call(cmd)
         if retcode != 0:
             print "Failed to rsync from first node to node %d" % (inst_idx)
+            print "Command was:", cmd
             return retcode
 
-    for inst_idx in range(len(cc.nodes)):
+    for inst_idx,node in enumerate(cc.nodes):
         print "Extracting data on node %d" % (inst_idx)
         retcode = node_ssh(cc, inst_idx,
-                           'cd', cc.sirikata_path, '&&',
+                           'cd', cc.sirikata_path(node=node), '&&',
                            'tar', '-xf',
-                           node_archive_path)
+                           node_archive_path[inst_idx])
         if retcode != 0:
             print "Failed to extract archive on node %d" % (inst_idx)
             return retcode
@@ -191,8 +199,8 @@ def add_service(*args, **kwargs):
     name_or_config, service_name, target_node, service_cmd = arguments.parse_or_die(add_service, [object, str, str], rest=True, *args)
     cname, cc = name_and_config(name_or_config)
 
-    user = config.kwarg_or_default('user', kwargs, default=cc.user)
-    cwd = config.kwarg_or_default('cwd', kwargs, default=cc.default_work_path)
+    user = config.kwarg_or_default('user', kwargs, default=None)
+    cwd = config.kwarg_or_default('cwd', kwargs, default=None)
     force_daemonize = bool(config.kwarg_or_default('force-daemonize', kwargs, default=False))
 
     if not len(service_cmd):
@@ -211,10 +219,13 @@ def add_service(*args, **kwargs):
         return 1
 
     target_node = cc.get_node(target_node)
+    # Can now get default values that depend on the node
+    if user is None: user = cc.user(target_node)
+    if cwd is None: cwd = cc.default_working_path(target_node)
 
     service_binary = service_cmd[0]
 
-    pidfile = os.path.join(cc.workspace(), 'sirikata_%s.pid' % (service_name) )
+    pidfile = os.path.join(cc.workspace_path(target_node), 'sirikata_%s.pid' % (service_name) )
 
     daemon_cmd = ['start-stop-daemon', '--start',
                   '--pidfile', pidfile,
@@ -255,8 +266,8 @@ def remove_service(*args, **kwargs):
         print "Couldn't find record of service '%s'" % (service_name)
         return 1
 
-    pidfile = os.path.join(cc.workspace(), 'sirikata_%s.pid' % (service_name) )
-    target_node = cc.state['services'][service_name]['node']
+    target_node = cc.get_node( cc.state['services'][service_name]['node'] )
+    pidfile = os.path.join(cc.workspace_path(target_node), 'sirikata_%s.pid' % (service_name) )
 
     # Remove location constraint
     retcode = node_ssh(cc, target_node,

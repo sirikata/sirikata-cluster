@@ -22,25 +22,6 @@ class NodeGroup(cluster.util.NodeGroup):
         super(NodeGroup, self).__init__(name=name)
 
 
-
-    def user(self):
-        return self.config.user
-
-    def sirikata_path(self):
-        return self.config.sirikata_path
-
-    def default_working_path(self):
-        return self.config.default_work_path
-
-    def workspace(self):
-        '''Returns a workspace directory that won't be cleaned up
-        automatically (i.e. not /tmp), is local to the machine
-        (i.e. no NFS shares), and won't clutter up a user's directory
-        if used for temporary files.'''
-        return self.config.workspace()
-
-
-
     def boot(self, **kwargs):
         # Nothing to do, we assume the lifecycle for ad-hoc clusters are managed separately
         return True

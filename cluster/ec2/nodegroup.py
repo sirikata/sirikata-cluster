@@ -41,17 +41,6 @@ class NodeGroup(cluster.util.NodeGroup):
         super(NodeGroup, self).__init__(name=name)
 
 
-    def user(self):
-        return 'ubuntu'
-
-    def sirikata_path(self):
-        return '/home/ubuntu/sirikata'
-
-    def default_working_path(self):
-        return '/home/ubuntu'
-
-
-
     def boot(self, **kwargs):
         return (nodes.boot(self.config, **kwargs) == 0)
 

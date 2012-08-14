@@ -18,3 +18,16 @@ class EC2GroupConfig(NodeGroupConfig):
             super(EC2GroupConfig, self).__init__(name, typename=self.TypeName, **kwargs)
         else:
             super(EC2GroupConfig, self).__init__(name, **kwargs)
+
+
+    def user(self, node=None):
+        return 'ubuntu'
+
+    def sirikata_path(self, node=None):
+        return '/home/ubuntu/sirikata'
+
+    def default_working_path(self, node=None):
+        return '/home/ubuntu'
+
+    def workspace_path(self, node=None):
+        return '/home/ubuntu'

@@ -43,6 +43,30 @@ class NodeGroupConfig(object):
 
 
 
+    def user(self, node=None):
+        '''The user used to login, manage the node, and start services.'''
+        raise Exception("NodeGroup.user isn't properly defined")
+
+    def sirikata_path(self, node=None):
+        '''The path to the sirikata directory.'''
+        raise Exception("NodeGroup.sirikata_path isn't properly defined")
+
+    def default_working_path(self, node=None):
+        '''The default working path the user will be in when starting
+        services. This can be useful for placing input data or
+        extracting output data, although ideally you would use
+        absolute paths instead of relying on defaults.
+        '''
+        raise Exception("NodeGroup.default_working_path isn't properly defined")
+
+    def workspace_path(self, node=None):
+        '''A workspace directory which won't be automatically cleaned
+        up (i.e. not /tmp) but can be used for temporary files.
+        '''
+        raise Exception("NodeGroup.workspace_path isn't properly defined")
+
+
+
 class NodeGroup(object):
     '''
     Base class for groups of nodes considered a cluster. Defines the
@@ -57,21 +81,27 @@ class NodeGroup(object):
 
     # Properties
 
-    def user(self):
+    def user(self, node=None):
         '''The user used to login, manage the node, and start services.'''
-        raise Exception("NodeGroup.user isn't properly defined")
+        return self.config.user(node=node)
 
-    def sirikata_path(self):
+    def sirikata_path(self, node=None):
         '''The path to the sirikata directory.'''
-        raise Exception("NodeGroup.sirikata_path isn't properly defined")
+        return self.config.sirikata_path(node=node)
 
-    def default_working_path(self):
+    def default_working_path(self, node=None):
         '''The default working path the user will be in when starting
         services. This can be useful for placing input data or
         extracting output data, although ideally you would use
         absolute paths instead of relying on defaults.
         '''
-        raise Exception("NodeGroup.default_working_path isn't properly defined")
+        return self.config.default_working_path(node=node)
+
+    def workspace_path(self, node=None):
+        '''A workspace directory which won't be automatically cleaned
+        up (i.e. not /tmp) but can be used for temporary files.
+        '''
+        return self.config.workspace_path(node=node)
 
 
     # Operations
