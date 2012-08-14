@@ -22,6 +22,7 @@ class NodeGroup(cluster.util.NodeGroup):
         ('ec2 nodes terminate', nodes.terminate),
         ('ec2 destroy', nodes.destroy),
         ('ec2 sync sirikata', sirikata.sync_sirikata),
+        ('ec2 sync files', nodes.sync_files),
 
         ('puppet master config', puppet.master_config),
         ('puppet slaves restart', puppet.slaves_restart),
@@ -59,6 +60,9 @@ class NodeGroup(cluster.util.NodeGroup):
 
     def sync_sirikata(self, path, **kwargs):
         return (sirikata.sync_sirikata(self.config, path) == 0)
+
+    def sync_files(self, target, src, dest, **kwargs):
+        return (nodes.sync_files(self.config, target, src, dest, **kwargs) == 0)
 
     def add_service(self, name, target, command, user=None, cwd=None, **kwargs):
         nkwargs = dict(kwargs)

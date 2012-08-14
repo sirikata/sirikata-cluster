@@ -91,6 +91,12 @@ class NodeGroup(object):
         '''Sync Sirikata archive or directory with the nodes in this cluster.'''
         raise Exception("NodeGroup.sync_sirikata isn't properly defined")
 
+    def sync_files(self, target, src, dest, **kwargs):
+        '''Sync regular files or directories with a node on the
+        cluster. Parameters are specifications of files to sync,
+        e.g. 'remote:/path/to/file' and 'local:/path/to/dir'.'''
+        raise Exception("NodeGroup.sync_files isn't properly defined")
+
     def add_service(self, name, target, command, user, cwd, **kwargs):
         '''Add a service, running the given command, to this node group.'''
 

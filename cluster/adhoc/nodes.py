@@ -145,6 +145,28 @@ def sync_sirikata(*args, **kwargs):
     return 0
 
 
+def sync_files(*args, **kwargs):
+    """adhoc sync files cluster_name_or_config idx_or_name_or_node target local_or_remote:/path local_or_remote:/path
+
+    Synchronize files or directories between a the local host and a cluster node.
+    """
+
+    name_or_config, idx_or_name_or_node, src_path, dest_path = arguments.parse_or_die(ssh, [object, object, str, str], *args)
+
+    name, cc = name_and_config(name_or_config)
+
+    node_address = cc.node_ssh_address(cc.get_node(idx_or_name_or_node))
+
+    # Get correct values out for names
+    paths = [src_path, dest_path]
+    paths = [p.replace('local:', '').replace('remote:', node_address + ":") for p in paths]
+    src_path, dest_path = tuple(paths)
+
+    # Make a single copy onto one of the nodes
+    retcode = subprocess.call(['rsync',
+                               src_path,
+                               dest_path])
+    return retcode
 
 def add_service(*args, **kwargs):
     """adhoc add service cluster_name_or_config service_id target_node|any [--user=user] [--cwd=/path/to/execute] [--] command to run

@@ -452,6 +452,38 @@ def ssh(*args, **kwargs):
         node_ssh(cc, inst_idx, *remote_cmd, pem=pemfile)
 
 
+def sync_files(*args, **kwargs):
+    """adhoc sync files cluster_name_or_config idx_or_name_or_node target local_or_remote:/path local_or_remote:/path [--pem=/path/to/key.pem]
+
+    Synchronize files or directories between a the local host and a cluster node.
+    """
+
+    name_or_config, idx_or_name_or_node, src_path, dest_path = arguments.parse_or_die(ssh, [object, object, str, str], *args)
+    pemfile = os.path.expanduser(config.kwarg_or_get('pem', kwargs, 'SIRIKATA_CLUSTER_PEMFILE'))
+
+    name, cc = name_and_config(name_or_config)
+
+    if 'reservation' not in cc.state or 'instances' not in cc.state:
+        print "It doesn't look like you've booted the cluster yet..."
+        exit(1)
+
+    # Get remote info
+    conn = EC2Connection(config.AWS_ACCESS_KEY_ID, config.AWS_SECRET_ACCESS_KEY)
+    instances_info = conn.get_all_instances(instance_ids = [ cc.state['instances'][idx] ])
+    # Should get back a list of one reservation with one instance in it
+    instance_info = instances_info[0].instances[0]
+    pub_dns_name = instance_info.public_dns_name
+    node_address = "ubuntu@" + pub_dns_name + ":"
+
+    # Get correct values out for names
+    paths = [src_path, dest_path]
+    paths = [p.replace('local:', '').replace('remote:', node_address) for p in paths]
+    src_path, dest_path = tuple(paths)
+
+    # Make a single copy onto one of the nodes
+    return subprocess.call(["rsync", "-e", "ssh -i " + pemfile, src_path, dest_path])
+
+
 def fix_corosync(*args, **kwargs):
     """ec2 fix corosync cluster_name_or_config [--pem=/path/to/key.pem]
 

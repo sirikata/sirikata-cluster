@@ -10,6 +10,7 @@ class NodeGroup(cluster.util.NodeGroup):
         ('adhoc node ssh', nodes.node_ssh),
         ('adhoc ssh', nodes.ssh),
         ('adhoc sync sirikata', nodes.sync_sirikata),
+        ('adhoc sync files', nodes.sync_files),
         ('adhoc add service', nodes.add_service),
         ('adhoc remove service', nodes.remove_service),
         ('adhoc destroy', nodes.destroy),
@@ -49,6 +50,9 @@ class NodeGroup(cluster.util.NodeGroup):
 
     def sync_sirikata(self, path, **kwargs):
         return (nodes.sync_sirikata(self.config, path) == 0)
+
+    def sync_files(self, target, src, dest, **kwargs):
+        return (nodes.sync_files(self.config, target, src, dest, **kwargs) == 0)
 
     def add_service(self, name, target, command, user=None, cwd=None, **kwargs):
         nkwargs = dict(kwargs)
