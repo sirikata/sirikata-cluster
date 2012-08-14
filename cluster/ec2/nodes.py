@@ -6,6 +6,7 @@ import cluster.util.data as data
 import cluster.util.arguments as arguments
 from boto.ec2.connection import EC2Connection
 import json, os, time, subprocess
+import re
 
 def instance_name(cname, idx):
     return cname + '-' + str(idx)
@@ -428,7 +429,7 @@ def node_ssh(*args, **kwargs):
     instance_info = instances_info[0].instances[0]
     pub_dns_name = instance_info.public_dns_name
 
-    cmd = ["ssh", "-i", pemfile, "ubuntu@" + pub_dns_name] + list(remote_cmd)
+    cmd = ["ssh", "-i", pemfile, "ubuntu@" + pub_dns_name] + [re.escape(x) for x in remote_cmd]
     return subprocess.call(cmd)
 
 

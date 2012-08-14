@@ -6,7 +6,7 @@ import cluster.util.data as data
 import cluster.util.arguments as arguments
 import cluster.util.sirikata as util_sirikata
 import json, os, time, subprocess
-
+import re
 
 def name_and_config(name_or_config):
     '''Get a name and config given either a name or a config.'''
@@ -72,7 +72,7 @@ def node_ssh(*args, **kwargs):
 
     name, cc = name_and_config(name_or_config)
 
-    cmd = ["ssh", cc.node_ssh_address(cc.get_node(idx_or_name_or_node))] + list(remote_cmd)
+    cmd = ["ssh", cc.node_ssh_address(cc.get_node(idx_or_name_or_node))] + [re.escape(x) for x in remote_cmd]
     return subprocess.call(cmd)
 
 
