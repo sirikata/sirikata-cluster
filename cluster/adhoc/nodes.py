@@ -118,21 +118,10 @@ def sync_sirikata(*args, **kwargs):
     sirikata_archive_name = os.path.basename(path)
     node_archive_path = [os.path.join(cc.workspace_path(node), sirikata_archive_name) for node in cc.nodes]
 
-    # Make a single copy onto one of the nodes
-    print "Copying data to node 0"
-    cmd = ['rsync', '--progress',
-           path,
-           cc.node_ssh_address(cc.get_node(0)) + ":" + node_archive_path[0]]
-    retcode = subprocess.call(cmd)
-    if retcode != 0:
-        print "Failed to rsync to first node."
-        print "Command was:", cmd
-        return retcode
-
-    for inst_idx in range(1, len(cc.nodes)):
+    for inst_idx in range(len(cc.nodes)):
         print "Copying data to node %d" % (inst_idx)
         cmd = ['rsync', '--progress',
-               cc.node_ssh_address(cc.get_node(0)) + ":" + node_archive_path[0],
+               path,
                cc.node_ssh_address(cc.get_node(inst_idx)) + ":" + node_archive_path[inst_idx]]
         retcode = subprocess.call(cmd)
         if retcode != 0:
