@@ -86,7 +86,7 @@ class AdHocGroupConfig(NodeGroupConfig):
         '''Helper that generates user@foo.com for ssh'ing into a
         machine, grabbing a default username if one is not already
         associated with the node.'''
-        return self.user(node) + '@' + node['dns_name']
+        return self.user(node) + '@' + self.hostname(node)
 
 
 
@@ -94,6 +94,11 @@ class AdHocGroupConfig(NodeGroupConfig):
         if node is None or 'username' not in node:
             return self.username
         return node['username']
+
+    def hostname(self, node=None):
+        if node and 'host' in node: return node['host']
+        if node and 'dns_name' in node: return node['dns_name']
+        assert(False and "You need to specify host information on a per-node basis.")
 
     def sirikata_path(self, node=None):
         if node is None or 'sirikata_path' not in node:

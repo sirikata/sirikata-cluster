@@ -23,6 +23,9 @@ class EC2GroupConfig(NodeGroupConfig):
     def user(self, node=None):
         return 'ubuntu'
 
+    def hostname(self, node=None):
+        return node.public_dns_name
+
     def sirikata_path(self, node=None):
         return '/home/ubuntu/sirikata'
 

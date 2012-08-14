@@ -47,6 +47,10 @@ class NodeGroupConfig(object):
         '''The user used to login, manage the node, and start services.'''
         raise Exception("NodeGroup.user isn't properly defined")
 
+    def hostname(self, node=None):
+        '''Get the public host name for this node.'''
+        raise Exception("NodeGroup.hostname isn't properly defined")
+
     def sirikata_path(self, node=None):
         '''The path to the sirikata directory.'''
         raise Exception("NodeGroup.sirikata_path isn't properly defined")
@@ -84,6 +88,10 @@ class NodeGroup(object):
     def user(self, node=None):
         '''The user used to login, manage the node, and start services.'''
         return self.config.user(node=node)
+
+    def hostname(self, node=None):
+        '''Get the public host name for this node.'''
+        return self.config.hostname(node=node)
 
     def sirikata_path(self, node=None):
         '''The path to the sirikata directory.'''
