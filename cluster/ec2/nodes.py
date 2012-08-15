@@ -169,8 +169,6 @@ def boot(*args, **kwargs):
         wait_ready(cc, '/home/ubuntu/ready/corosync-service', '/home/ubuntu/ready/sirikata', timeout=timeout, **pem_kwargs)
         print "Fixing corosync configuration..."
         fix_corosync(cc, **pem_kwargs)
-        print "Waiting for nodes to become ready..."
-        return wait_ready(cc, '/home/ubuntu/ready/pacemaker', timeout=timeout, **pem_kwargs)
 
     return 0
 
@@ -514,8 +512,13 @@ def fix_corosync(*args, **kwargs):
     # 3. Restart slave puppets, making them pick up the new config and
     # restart corosync
     puppet.slaves_restart(name_or_config, pem=pemfile)
-    print "Sleeping for 30 seconds to give the slave puppets a chance to recover..."
-    time.sleep(30)
+
+    print "Waiting for nodes to become ready with pacemaker..."
+    cname, cc = name_and_config(name_or_config)
+    pem_kwargs = {}
+    if pemfile is not None: pem_kwargs['pem'] = pemfile
+    wait_ready(cc, '/home/ubuntu/ready/pacemaker', timeout=300, **pem_kwargs)
+
     # 4. Verifying good state
     print "Verifying that the cluster is in a good state. If the following command outputs messages, something is wrong..."
     node_ssh(name_or_config, 0, 'sudo', 'crm_verify', '-L', pem=pemfile)
