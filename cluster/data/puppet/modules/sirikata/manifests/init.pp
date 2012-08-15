@@ -96,7 +96,7 @@ class sirikata {
   service { 'corosync':
     ensure => running,
     enable => true,
-    require => [ Exec['enable corosync'], File['/etc/corosync/authkey'], File['/usr/lib/ocf/resource.d/sirikata'] ],
+    require => [ Exec['enable corosync'], File['/etc/corosync/authkey'], File['/usr/lib/ocf/resource.d/sirikata'], Exec['/home/ubuntu/ready/corosync-configured'] ],
     subscribe => File['/etc/corosync/corosync.conf', '/etc/corosync/authkey'],
   }
 
@@ -135,6 +135,24 @@ class sirikata {
     ensure  => directory,
     owner => 'ubuntu',
     group => 'ubuntu',
+  }
+  # This lets us know that corosync has been installed and we can reconfigure it.
+  file { '/home/ubuntu/ready/corosync-service' :
+    ensure  => file,
+    require => [ File['/home/ubuntu/ready'], Package['corosync'], Exec['enable corosync'] ],
+    content => '',
+    owner => 'ubuntu',
+    group => 'ubuntu',
+  }
+  # And this one is put into place by some external process, i.e. the
+  # user configuring the servers, because we need some static
+  # configuration info put into corosync.conf, but it can't be
+  # determined and installed until we've booted all the servers. We
+  # need to use this exec workaround since files can't just check for
+  # existence
+  exec { '/home/ubuntu/ready/corosync-configured' :
+    command => "/usr/bin/test -f /home/ubuntu/ready/corosync-configured",
+    unless => "/usr/bin/test -f /home/ubuntu/ready/corosync-configured",
   }
   file { '/home/ubuntu/ready/pacemaker' :
     ensure  => file,

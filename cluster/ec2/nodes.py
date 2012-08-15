@@ -118,7 +118,7 @@ def boot(*args, **kwargs):
     """
 
     name_or_config = arguments.parse_or_die(boot, [object], *args)
-    timeout = config.kwarg_or_default('wait-timeout', kwargs, default=300)
+    timeout = config.kwarg_or_default('wait-timeout', kwargs, default=600)
     # Note pemfile is different from other places since it's only required with wait-timeout.
     pemfile = config.kwarg_or_get('pem', kwargs, 'SIRIKATA_CLUSTER_PEMFILE', default=None)
     name, cc = name_and_config(name_or_config)
@@ -155,6 +155,9 @@ def boot(*args, **kwargs):
         conn.create_tags([inst.id], {"Name": instance_name(name, idx)})
 
     if timeout > 0:
+        pem_kwargs = {}
+        if pemfile is not None: pem_kwargs['pem'] = pemfile
+
         print "Waiting for nodes to become pingable..."
         pingable = wait_pingable(cc, timeout=timeout)
         if pingable != 0: return pingable
@@ -162,12 +165,12 @@ def boot(*args, **kwargs):
         # may happen before all services are finished starting
         print "Sleeping to allow nodes to finish booting"
         time.sleep(15)
-        print "Fixing corosync..."
-        pem_kwargs = {}
-        if pemfile is not None: pem_kwargs['pem'] = pemfile
+        print "Waiting for initial services and Sirikata binaries to install"
+        wait_ready(cc, '/home/ubuntu/ready/corosync-service', '/home/ubuntu/ready/sirikata', timeout=timeout, **pem_kwargs)
+        print "Fixing corosync configuration..."
         fix_corosync(cc, **pem_kwargs)
         print "Waiting for nodes to become ready..."
-        return wait_ready(cc, timeout=timeout, **pem_kwargs)
+        return wait_ready(cc, '/home/ubuntu/ready/pacemaker', timeout=timeout, **pem_kwargs)
 
     return 0
 
@@ -275,7 +278,7 @@ def wait_ready(*args, **kwargs):
     indicators that both Sirikata and Pacemaker are available. You
     should make sure all nodes are pingable before running this.'''
 
-    name_or_config = arguments.parse_or_die(wait_ready, [object], *args)
+    name_or_config, files_to_check = arguments.parse_or_die(wait_ready, [object], rest=True, *args)
     timeout = int(config.kwarg_or_get('timeout', kwargs, 'SIRIKATA_READY_WAIT_TIMEOUT', default=0))
     pemfile = os.path.expanduser(config.kwarg_or_get('pem', kwargs, 'SIRIKATA_CLUSTER_PEMFILE'))
 
@@ -293,7 +296,10 @@ def wait_ready(*args, **kwargs):
         ip = instances_ips[node_id]
         print 'Waiting on %s (%s)' % (node_id, str(ip))
         node_idx = cc.state['instances'].index(node_id)
-        remote_cmd = ['test', '-f', '/home/ubuntu/ready/pacemaker', '&&', 'test', '-f', '/home/ubuntu/ready/sirikata']
+        remote_cmd = []
+        for file_to_check in files_to_check:
+            if remote_cmd: remote_cmd.append('&&')
+            remote_cmd += ['test', '-f', file_to_check]
         retcode = node_ssh(cc, node_idx, *remote_cmd, pem=pemfile)
         if retcode == 0: # command success
             not_ready.remove(node_id)
@@ -429,7 +435,10 @@ def node_ssh(*args, **kwargs):
     instance_info = instances_info[0].instances[0]
     pub_dns_name = instance_info.public_dns_name
 
-    cmd = ["ssh", "-i", pemfile, "ubuntu@" + pub_dns_name] + [re.escape(x) for x in remote_cmd]
+    def escape(x):
+        if x.strip() == '&&' or x.strip() == '||': return x
+        return re.escape(x)
+    cmd = ["ssh", "-i", pemfile, "ubuntu@" + pub_dns_name] + [escape(x) for x in remote_cmd]
     return subprocess.call(cmd)
 
 
@@ -500,6 +509,8 @@ def fix_corosync(*args, **kwargs):
     members_address(name_or_config)
     # 2. Update our local puppet master
     puppet.master_config('--yes')
+    # 3. Touch the indicator file so the puppets know they can proceed with starting corosync
+    ssh(name_or_config, 'touch', '/home/ubuntu/ready/corosync-configured', pem=pemfile)
     # 3. Restart slave puppets, making them pick up the new config and
     # restart corosync
     puppet.slaves_restart(name_or_config, pem=pemfile)
