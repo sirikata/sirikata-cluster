@@ -24,7 +24,7 @@ def create_security_group(*args, **kwargs):
     Create a new security group with settings reasonable for a
     Sirikata cluster -- ssh access, corosync and puppet ports open,
     ICMP enabled, and a range of ports commonly used by Sirikata open
-    to TCP (7000 - 10000).
+    to TCP (6000 - 10000).
 
     Note that you really only need one of these unless you want to
     customize something -- multiple clusters can use the same security
@@ -68,8 +68,8 @@ def create_security_group(*args, **kwargs):
     ensure_rule('udp', 5405, 5405, '0.0.0.0/0')
     # Puppet: TCP 8139
     ensure_rule('tcp', 8139, 8139, '0.0.0.0/0')
-    # Sirikata: TCP 7000-10000
-    ensure_rule('tcp', 7000, 10000, '0.0.0.0/0')
+    # Sirikata: TCP 6000-10000
+    ensure_rule('tcp', 6000, 10000, '0.0.0.0/0')
     # Redis
     ensure_rule('tcp', 6379, 6379, '0.0.0.0/0')
 
