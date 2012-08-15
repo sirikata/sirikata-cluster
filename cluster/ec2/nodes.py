@@ -8,6 +8,12 @@ from boto.ec2.connection import EC2Connection
 import json, os, time, subprocess
 import re
 
+def ssh_escape(x):
+    '''Escaping rules are confusing... This escapes an argument enough to get it through ssh'''
+    if x.strip() == '&&' or x.strip() == '||': return x
+    return re.escape(x)
+
+
 def instance_name(cname, idx):
     return cname + '-' + str(idx)
 
@@ -433,10 +439,7 @@ def node_ssh(*args, **kwargs):
     instance_info = instances_info[0].instances[0]
     pub_dns_name = instance_info.public_dns_name
 
-    def escape(x):
-        if x.strip() == '&&' or x.strip() == '||': return x
-        return re.escape(x)
-    cmd = ["ssh", "-i", pemfile, "ubuntu@" + pub_dns_name] + [escape(x) for x in remote_cmd]
+    cmd = ["ssh", "-i", pemfile, "ubuntu@" + pub_dns_name] + [ssh_escape(x) for x in remote_cmd]
     return subprocess.call(cmd)
 
 
@@ -477,7 +480,7 @@ def sync_files(*args, **kwargs):
 
     # Get remote info
     conn = EC2Connection(config.AWS_ACCESS_KEY_ID, config.AWS_SECRET_ACCESS_KEY)
-    instances_info = conn.get_all_instances(instance_ids = [ cc.state['instances'][idx] ])
+    instances_info = conn.get_all_instances(instance_ids = [ cc.get_node_name(idx_or_name_or_node) ])
     # Should get back a list of one reservation with one instance in it
     instance_info = instances_info[0].instances[0]
     pub_dns_name = instance_info.public_dns_name
@@ -579,16 +582,20 @@ def add_service(*args, **kwargs):
         print "Couldn't set cluster to opt-in mode."
         return retcode
 
+    # Clean up arguments
+    # node=None because we only have generic versions and don't have a real node object to pass in
+    pidfile = os.path.join(cc.workspace_path(node=None), 'sirikata_%s.pid' % (service_name) )
+    service_cmd = [ssh_escape(arg.replace('PIDFILE', pidfile)) for arg in service_cmd]
     service_binary = service_cmd[0]
-    # Args need to go into a single quoted string parameter, they need
-    # quotes escaped.
-    # FIXME this doesn't properly handle already escaped quotes...
-    service_args = (' '.join(service_cmd[1:])).replace('"', '\"')
+    # Args need to go into a single quoted string parameter
+    service_args = ' '.join(service_cmd[1:])
 
     retcode = node_ssh(cc, 0,
                        'sudo', 'crm', 'configure', 'primitive',
                        service_name, 'ocf:sirikata:anything',
                        'params',
+                       'create_pidfile=no',
+                       'pidfile=' + pidfile,
                        'binfile=' + service_binary,
                        'user=' + user,
                        'cwd=' + cwd,

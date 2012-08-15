@@ -24,7 +24,7 @@ class EC2GroupConfig(NodeGroupConfig):
         return 'ubuntu'
 
     def hostname(self, node=None):
-        return node.public_dns_name
+        return node['dns_name']
 
     def sirikata_path(self, node=None):
         return '/home/ubuntu/sirikata'
@@ -34,3 +34,17 @@ class EC2GroupConfig(NodeGroupConfig):
 
     def workspace_path(self, node=None):
         return '/home/ubuntu'
+
+
+
+    def get_node_name(self, idx_or_name_or_node):
+        '''Gets a nodes name based on '''
+
+        if type(idx_or_name_or_node) == int:
+            return self.state['instances'][idx_or_name_or_node]
+
+        if type(idx_or_name_or_node) == str:
+            assert( any([x == idx_or_name_or_node for x in self.state['instances']]) )
+            return idx_or_name_or_node
+
+        return idx_or_name_or_node['id']

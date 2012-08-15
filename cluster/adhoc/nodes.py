@@ -8,6 +8,11 @@ import cluster.util.sirikata as util_sirikata
 import json, os, time, subprocess
 import re
 
+def ssh_escape(x):
+    '''Escaping rules are confusing... This escapes an argument enough to get it through ssh'''
+    if x.strip() == '&&' or x.strip() == '||': return x
+    return re.escape(x)
+
 def name_and_config(name_or_config):
     '''Get a name and config given either a name or a config.'''
     if isinstance(name_or_config, AdHocGroupConfig):
@@ -72,11 +77,7 @@ def node_ssh(*args, **kwargs):
 
     name, cc = name_and_config(name_or_config)
 
-    def escape(x):
-        '''Escaping rules are confusing...'''
-        if x.strip() == '&&' or x.strip() == '||': return x
-        return re.escape(x)
-    cmd = ["ssh", cc.node_ssh_address(cc.get_node(idx_or_name_or_node))] + [escape(x) for x in remote_cmd]
+    cmd = ["ssh", cc.node_ssh_address(cc.get_node(idx_or_name_or_node))] + [ssh_escape(x) for x in remote_cmd]
     return subprocess.call(cmd)
 
 
