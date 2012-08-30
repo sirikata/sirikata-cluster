@@ -10,6 +10,8 @@ class NodeGroup(cluster.util.NodeGroup):
         ('ec2 security create', nodes.create_security_group),
         ('ec2 create', nodes.create),
         ('ec2 nodes boot', nodes.boot),
+        ('ec2 nodes request spot instances', nodes.request_spot_instances),
+        ('ec2 nodes import', nodes.import_nodes),
         ('ec2 members address list', nodes.members_address),
         ('ec2 members info', nodes.members_info),
         ('ec2 node ssh', nodes.node_ssh),

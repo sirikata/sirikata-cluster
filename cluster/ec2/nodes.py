@@ -129,7 +129,7 @@ def boot(*args, **kwargs):
     pemfile = config.kwarg_or_get('pem', kwargs, 'SIRIKATA_CLUSTER_PEMFILE', default=None)
     name, cc = name_and_config(name_or_config)
 
-    if 'reservation' in cc.state or 'instances' in cc.state:
+    if 'reservation' in cc.state or 'spot' in cc.state or 'instances' in cc.state:
         print "It looks like you already have active nodes for this cluster..."
         exit(1)
 
@@ -156,9 +156,112 @@ def boot(*args, **kwargs):
     cc.state['instances'] = [inst.id for inst in reservation.instances]
     cc.save()
 
+    return name_and_boot_nodes(cc, conn, pemfile, timeout)
+
+def request_spot_instances(*args, **kwargs):
+    """ec2 nodes request spot instances name_or_config price
+
+    Request spot instances to be used in this cluster. Unlike boot,
+    this doesn't block because we can't be sure the nodes will
+    actually be booted immediately. You should use this in conjunction
+    with the import nodes command once the nodes have booted, which
+    will complete the setup. The main benefit of using this instead of
+    allocating the nodes manually is that all the configuration is
+    setup properly, including, importantly, the initial script which
+    performs the bootstrapping configuration.
+    """
+
+    name_or_config, price = arguments.parse_or_die(request_spot_instances, [object, str], *args)
+    name, cc = name_and_config(name_or_config)
+
+    if 'reservation' in cc.state or 'spot' in cc.state or 'instances' in cc.state:
+        print "It looks like you already have active nodes for this cluster..."
+        exit(1)
+
+    # Load the setup script template, replace puppet master info
+    user_data = data.load('ec2-user-data', 'node-setup.sh')
+    user_data = user_data.replace('{{{PUPPET_MASTER}}}', cc.puppet_master)
+
+    # Now create the nodes
+    conn = EC2Connection(config.AWS_ACCESS_KEY_ID, config.AWS_SECRET_ACCESS_KEY)
+    request = conn.request_spot_instances(price, cc.ami,
+                                          # launch group is just a
+                                          # name that causes these to
+                                          # only launch if all can be
+                                          # satisfied
+                                          launch_group=name,
+                                          count=cc.size,
+                                          key_name=cc.keypair,
+                                          instance_type=cc.instance_type,
+                                          security_groups=[cc.group],
+                                          user_data=user_data
+                                          )
+
+    # Indicate that we've done a spot request so we don't try to double-allocate nodes.
+    cc.state['spot'] = True
+    cc.save()
+
+    print "Requested %d spot instances" % cc.size
+    return 0
+
+def import_nodes(*args, **kwargs):
+    """ec2 nodes import name_or_config instance1_id instance2_id ... [--wait-timeout=300 --pem=/path/to/key.pem]
+
+    Import instances from a spot reservation and then perform the boot sequence on them.
+    The command will block for wait-timeout
+    seconds, or until all nodes reach a ready state (currently defined
+    as being pingable and containing two files indicating readiness of
+    Sirikata and Pacemaker). A wait-timeout of 0 disables this. A pem
+    file, either passed on the command line or through the environment
+    is required for the timeout to work properly. Note that with
+    timeouts enabled, this will run 'cluster fix corosync' as well as
+    that is required for the nodes to reach a ready state.
+    """
+
+    name_or_config, instances_to_add = arguments.parse_or_die(import_nodes, [object], rest=True, *args)
+    timeout = config.kwarg_or_default('wait-timeout', kwargs, default=600)
+    # Note pemfile is different from other places since it's only required with wait-timeout.
+    pemfile = config.kwarg_or_get('pem', kwargs, 'SIRIKATA_CLUSTER_PEMFILE', default=None)
+    name, cc = name_and_config(name_or_config)
+
+    if 'spot' not in cc.state:
+        print "It looks like this cluster hasn't made a spot reservation..."
+        return 1
+
+    conn = EC2Connection(config.AWS_ACCESS_KEY_ID, config.AWS_SECRET_ACCESS_KEY)
+
+    if len(instances_to_add) == 0:
+        print "No instances specified, trying to use full list of account instances..."
+        reservations = conn.get_all_instances()
+        for res in reservations:
+            instances_to_add += list(res.instances)
+    if len(instances_to_add) != cc.size:
+        print "Number of instances doesn't match the cluster size. Make sure you explicitly specify %d instances" % (cc.size)
+        return 1
+
+    cc.state['instances'] = instances_to_add
+
+    # Verify the instances are valid, just checking that we get valid
+    # objects back when we look them up with AWS
+    print "Verifying instances are valid..."
+    instances = get_all_instances(cc, conn);
+    if len(instances) != len(instances_to_add):
+        print "Only got %d instances back, you'll need to manually clean things up..." % len(instances)
+        return 1
+
+    cc.save()
+
+    return name_and_boot_nodes(cc, conn, pemfile, timeout)
+
+def name_and_boot_nodes(cc, conn, pemfile, timeout):
+    '''After instances have been allocated to the cluster (by booting
+    them directly or importing the instance IDs), this names them and
+    runs the boot sequence to get them configured.
+    '''
+
     # Name the nodes
-    for idx,inst in enumerate(reservation.instances):
-        conn.create_tags([inst.id], {"Name": instance_name(name, idx)})
+    for idx,inst_id in enumerate(cc.state['instances']):
+        conn.create_tags([inst_id], {"Name": instance_name(cc.name, idx)})
 
     if timeout > 0:
         pem_kwargs = {}
@@ -330,7 +433,7 @@ def members_address(*args, **kwargs):
     name_or_config = arguments.parse_or_die(members_address, [object], *args)
     name, cc = name_and_config(name_or_config)
 
-    if 'reservation' not in cc.state or 'instances' not in cc.state:
+    if 'instances' not in cc.state:
         print "It doesn't look like you've booted the cluster yet..."
         exit(1)
 
@@ -384,7 +487,7 @@ def members_info_data(*args, **kwargs):
     name_or_config = arguments.parse_or_die(members_info, [object], *args)
     name, cc = name_and_config(name_or_config)
 
-    if 'reservation' not in cc.state or 'instances' not in cc.state:
+    if 'instances' not in cc.state:
         print "It doesn't look like you've booted the cluster yet..."
         exit(1)
 
@@ -429,7 +532,7 @@ def node_ssh(*args, **kwargs):
 
     name, cc = name_and_config(name_or_config)
 
-    if 'reservation' not in cc.state or 'instances' not in cc.state:
+    if 'instances' not in cc.state:
         print "It doesn't look like you've booted the cluster yet..."
         exit(1)
 
@@ -474,7 +577,7 @@ def sync_files(*args, **kwargs):
 
     name, cc = name_and_config(name_or_config)
 
-    if 'reservation' not in cc.state or 'instances' not in cc.state:
+    if 'instances' not in cc.state:
         print "It doesn't look like you've booted the cluster yet..."
         exit(1)
 
@@ -720,7 +823,10 @@ def terminate(*args, **kwargs):
 
     if 'node-types' in cc.state: del cc.state['node-types']
     del cc.state['instances']
-    del cc.state['reservation']
+    if 'reservation' in cc.state:
+        del cc.state['reservation']
+    if 'spot' in cc.state:
+        del cc.state['spot']
 
     cc.save()
 
@@ -734,7 +840,7 @@ def destroy(*args, **kwargs):
 
     name, cc = name_and_config(name_or_config)
 
-    if 'reservation' in cc.state or 'instances' in cc.state:
+    if 'reservation' in cc.state or 'spot' in cc.state or 'instances' in cc.state:
         print "You have an active reservation or nodes, use 'cluster terminate nodes' before destroying this cluster spec."
         exit(1)
 
