@@ -69,6 +69,10 @@ class NodeGroupConfig(object):
         '''
         raise Exception("NodeGroup.workspace_path isn't properly defined")
 
+    def capabilities(self, node=None):
+        '''Get the capabilities (or an empty list) for this node'''
+        raise Exception("NodeGroup.capabilities isn't properly defined")
+
 
 
 class NodeGroup(object):
@@ -110,6 +114,10 @@ class NodeGroup(object):
         up (i.e. not /tmp) but can be used for temporary files.
         '''
         return self.config.workspace_path(node=node)
+
+    def capabilities(self, node=None):
+        '''Get the capabilities (or an empty list) for this node'''
+        return self.config.capabilities(node=node)
 
 
     # Operations

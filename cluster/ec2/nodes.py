@@ -791,12 +791,17 @@ def set_node_type(*args, **kwargs):
 
     # Update entry in local storage so we can update later
     if 'node-types' not in cc.state: cc.state['node-types'] = {}
+    if 'capabilities' not in cc.state: cc.state['capabilities'] = {}
     inst = get_node(cc, conn, nodeid)
     if nodetype == 'default':
         if pacemaker_id(inst) in cc.state['node-types']:
             del cc.state['node-types'][pacemaker_id(inst)]
+        if inst.id in cc.state['capabilities']:
+            del cc.state['capabilities'][inst.id]
     else:
         cc.state['node-types'][pacemaker_id(inst)] = nodetype
+        # Note currently only 1, the puppet setup doesn't really have composability right now anyway...
+        cc.state['capabilities'][inst.id] = 'redis'
     cc.save()
 
     # Generate config
@@ -831,6 +836,7 @@ def terminate(*args, **kwargs):
         print "Unterminated:", list(set(cc.state['instances']).difference(set(terminated)))
 
     if 'node-types' in cc.state: del cc.state['node-types']
+    if 'capabilities' in cc.state: del cc.state['capabilities']
     del cc.state['instances']
     if 'reservation' in cc.state:
         del cc.state['reservation']

@@ -114,3 +114,7 @@ class AdHocGroupConfig(NodeGroupConfig):
         if node is None or 'workspace_path' not in node:
             return self.default_scratch_path
         return node['workspace_path']
+
+    def capabilities(self, node=None):
+        assert(node is not None and "You must specify a node to look up capabilities.")
+        if 'capabilities' in node: return node['capabilities']

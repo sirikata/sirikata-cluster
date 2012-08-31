@@ -228,7 +228,7 @@ between nodes and just because it requires more settings to be
 specified than EC2, where we can enforce a particular layout. To
 create a cluster:
 
-    ./sirikata-cluster.py adhoc create my-adhoc-cluster ewencp /home/ewencp/sirikata /home/ewencp /disk/scratch host1.example.com host2.example.com '{ "dns_name" : "host3.example.com", "username" : "bob", "sirikata_path" : "/path/to/sirikata", "default_working_path" : "/home/user", "workspace_path" : "/path/to/non/tmp/work/dir" }'
+    ./sirikata-cluster.py adhoc create my-adhoc-cluster ewencp /home/ewencp/sirikata /home/ewencp /disk/scratch host1.example.com host2.example.com '{ "dns_name" : "host3.example.com", "username" : "bob", "sirikata_path" : "/path/to/sirikata", "default_working_path" : "/home/user", "workspace_path" : "/path/to/non/tmp/work/dir", "capabilities" : "redis" }'
 
 The arguments are the cluster name, the default user, a directory to
 sync the Sirikata binaries to, a default work directory where it's
@@ -238,7 +238,8 @@ as scratch space but which *won't* be automatically cleaned up like
 are node specifications. The first couple use the default settings and
 only need the hostname. In the future we'll be able to refer to them
 just by 'host1' and 'host2'. The third node needs special setting so
-we pass in a JSON string describing the node.
+we pass in a JSON string describing the node, including "capabilities"
+which describe special services this node can provide.
 
 Most commands work just like the EC2 versions. Where a node is
 required, you can specify it by index, ID, or full hostname. Available

@@ -35,7 +35,12 @@ class EC2GroupConfig(NodeGroupConfig):
     def workspace_path(self, node=None):
         return '/home/ubuntu'
 
-
+    def capabilities(self, node=None):
+        if not self.state['capabilities']: return []
+        if node['id'] not in self.state['capabilities']: return []
+        cap_val = self.state['capabilities'][node['id']]
+        if type(cap_val) == str: return [cap_val]
+        return cap_val
 
     def get_node_name(self, idx_or_name_or_node):
         '''Gets a nodes name based on '''
