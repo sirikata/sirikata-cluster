@@ -724,6 +724,9 @@ def add_service(*args, **kwargs):
                            '100:', target_node_pacemaker_id # value is arbitrary != -INF
                            )
 
+    if retcode != 0:
+        print "Failed to add cluster service location constraint"
+
     return retcode
 
 def remove_service(*args, **kwargs):
@@ -743,6 +746,9 @@ def remove_service(*args, **kwargs):
                        'stop', service_name
                        )
 
+    # Need to give it some time to shut down the process
+    time.sleep(6)
+
     if retcode != 0:
         print "Failed to stop process, but still trying to remove the service..."
 
@@ -753,9 +759,6 @@ def remove_service(*args, **kwargs):
                        )
     if retcode != 0:
         print "Failed to remove location constraint, but still trying to remove the service..."
-
-    # Need to give it some time to shut down the process
-    time.sleep(6)
 
     retcode = node_ssh(cc, 0,
                        'sudo', 'crm', 'configure',
