@@ -747,7 +747,7 @@ def remove_service(*args, **kwargs):
                        )
 
     # Need to give it some time to shut down the process
-    time.sleep(6)
+    time.sleep(10)
 
     if retcode != 0:
         print "Failed to stop process, but still trying to remove the service..."
