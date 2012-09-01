@@ -49,7 +49,7 @@ class sirikata {
     cwd => '/home/ubuntu/sirikata',
     path => [ '/bin', '/usr/bin' ],
     user => 'ubuntu',
-    unless => 'test -f /home/ubuntu/sirikata/bin/space', # Reasonable sanity check
+    refreshonly => true,
     subscribe => File['/home/ubuntu/sirikata.tar.bz2'],
     require => File['/home/ubuntu/sirikata.tar.bz2', '/home/ubuntu/sirikata'],
   }
