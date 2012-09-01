@@ -49,7 +49,13 @@ class EC2GroupConfig(NodeGroupConfig):
             return self.state['instances'][idx_or_name_or_node]
 
         if type(idx_or_name_or_node) == str:
-            assert( any([x == idx_or_name_or_node for x in self.state['instances']]) )
-            return idx_or_name_or_node
+            if ( any([x == idx_or_name_or_node for x in self.state['instances']]) ):
+                return idx_or_name_or_node
+            try: # may be string-encoded index
+                idx = int(idx_or_name_or_node)
+                return self.state['instances'][idx]
+            except:
+                pass
+            raise Exception("Couldn't decode %s as index, name, or node object" % (idx_or_name_or_node))
 
         return idx_or_name_or_node['id']
