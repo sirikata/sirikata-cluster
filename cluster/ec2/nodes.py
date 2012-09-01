@@ -523,12 +523,12 @@ def members_info(*args, **kwargs):
 
 
 def node_ssh(*args, **kwargs):
-    """ec2 node ssh cluster_name_or_config index [--pem=/path/to/key.pem] [optional additional arguments give command just like with real ssh]
+    """ec2 node ssh cluster_name_or_config idx_or_name_or_node [--pem=/path/to/key.pem] [optional additional arguments give command just like with real ssh]
 
     Spawn an SSH process that SSHs into the node
     """
 
-    name_or_config, idx, remote_cmd = arguments.parse_or_die(node_ssh, [object, int], rest=True, *args)
+    name_or_config, idx_or_name_or_node, remote_cmd = arguments.parse_or_die(node_ssh, [object, object], rest=True, *args)
     pemfile = os.path.expanduser(config.kwarg_or_get('pem', kwargs, 'SIRIKATA_CLUSTER_PEMFILE'))
 
     name, cc = name_and_config(name_or_config)
@@ -538,7 +538,7 @@ def node_ssh(*args, **kwargs):
         exit(1)
 
     conn = EC2Connection(config.AWS_ACCESS_KEY_ID, config.AWS_SECRET_ACCESS_KEY)
-    instances_info = conn.get_all_instances(instance_ids = [ cc.state['instances'][idx] ])
+    instances_info = conn.get_all_instances(instance_ids = [ cc.get_node_name(idx_or_name_or_node) ])
     # Should get back a list of one reservation with one instance in it
     instance_info = instances_info[0].instances[0]
     pub_dns_name = instance_info.public_dns_name
