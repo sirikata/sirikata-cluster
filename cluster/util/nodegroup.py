@@ -146,11 +146,15 @@ class NodeGroup(object):
     def add_service(self, name, target, command, user, cwd, **kwargs):
         '''Add a service, running the given command, to this node group.'''
 
-        raise Exception("NodeGroup.boot isn't properly defined")
+        raise Exception("NodeGroup.add_service isn't properly defined")
+
+    def service_status(self, name, **kwargs):
+        '''Remove a service from this node group.'''
+        raise Exception("NodeGroup.service_stats isn't properly defined")
 
     def remove_service(self, name, **kwargs):
         '''Remove a service from this node group.'''
-        raise Exception("NodeGroup.boot isn't properly defined")
+        raise Exception("NodeGroup.remove_service isn't properly defined")
 
     def terminate(self, **kwargs):
         '''If necessary, terminate the nodes in this node group.'''

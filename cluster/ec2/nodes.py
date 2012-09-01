@@ -10,7 +10,7 @@ import re
 
 def ssh_escape(x):
     '''Escaping rules are confusing... This escapes an argument enough to get it through ssh'''
-    if x.strip() == '&&' or x.strip() == '||': return x
+    if x.strip() == '&&' or x.strip() == '||' or x.strip() == '|': return x
     return re.escape(x)
 
 
@@ -727,6 +727,32 @@ def add_service(*args, **kwargs):
 
     if retcode != 0:
         print "Failed to add cluster service location constraint"
+
+    return retcode
+
+def service_status(*args, **kwargs):
+    """ec2 service status cluster_name_or_config service_id [--pem=/path/to/pem.key]
+
+    Check the status of a service from the cluster. Returns 0 if it is
+    active and running, non-zero otherwise.
+    """
+
+    name_or_config, service_name = arguments.parse_or_die(remove_service, [object, str], *args)
+    pemfile = os.path.expanduser(config.kwarg_or_get('pem', kwargs, 'SIRIKATA_CLUSTER_PEMFILE'))
+
+    cname, cc = name_and_config(name_or_config)
+
+    # Check if the process can respond to signals, i.e. just if it is alive. the
+    # 'crm resource status foo' command doesn't return a useful status value, so
+    # we need to grep for output. If a service is *not* running, it prints to
+    # stderr that it is NOT running. If it *is* running, it prints that (unique
+    # word 'on:') to stdout. Since we want a 0 (success) return value if it's
+    # running, we grep for the success message on stdout.
+    retcode = node_ssh(cc, 0,
+                       'sudo', 'crm', 'resource',
+                       'status', service_name,
+                       '|', 'grep', '-q', 'on:'
+                       )
 
     return retcode
 

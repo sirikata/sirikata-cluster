@@ -10,7 +10,7 @@ import re
 
 def ssh_escape(x):
     '''Escaping rules are confusing... This escapes an argument enough to get it through ssh'''
-    if x.strip() == '&&' or x.strip() == '||': return x
+    if x.strip() == '&&' or x.strip() == '||' or x.strip() == '|': return x
     return re.escape(x)
 
 def name_and_config(name_or_config):
@@ -242,6 +242,34 @@ def add_service(*args, **kwargs):
 
     return retcode
 
+def service_status(*args, **kwargs):
+    """adhoc service status cluster_name_or_config service_id [--pem=/path/to/pem.key]
+
+    Check the status of a service from the cluster. Returns 0 if it is
+    active and running, non-zero otherwise.
+    """
+
+    name_or_config, service_name = arguments.parse_or_die(service_status, [object, str], *args)
+
+    cname, cc = name_and_config(name_or_config)
+
+    if service_name not in cc.state['services']:
+        print "Couldn't find record of service '%s'" % (service_name)
+        return 1
+
+    target_node = cc.get_node( cc.state['services'][service_name]['node'] )
+    pidfile = os.path.join(cc.workspace_path(target_node), 'sirikata_%s.pid' % (service_name) )
+
+    # Check if the process can respond to signals, i.e. just if it is alive
+    retcode = node_ssh(cc, target_node,
+                       '/bin/bash', '-c',
+                       "kill -0 `grep -o '[0-9]*' %s`" % (pidfile)
+                       )
+
+    return retcode
+
+
+
 def remove_service(*args, **kwargs):
     """adhoc remove service cluster_name_or_config service_id [--pem=/path/to/pem.key]
 
@@ -259,7 +287,6 @@ def remove_service(*args, **kwargs):
     target_node = cc.get_node( cc.state['services'][service_name]['node'] )
     pidfile = os.path.join(cc.workspace_path(target_node), 'sirikata_%s.pid' % (service_name) )
 
-    # Remove location constraint
     retcode = node_ssh(cc, target_node,
                        'start-stop-daemon', '--stop',
                        '--retry', 'TERM/6/KILL/5',

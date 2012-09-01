@@ -12,6 +12,7 @@ class NodeGroup(cluster.util.NodeGroup):
         ('adhoc sync sirikata', nodes.sync_sirikata),
         ('adhoc sync files', nodes.sync_files),
         ('adhoc add service', nodes.add_service),
+        ('adhoc service status', nodes.service_status),
         ('adhoc remove service', nodes.remove_service),
         ('adhoc destroy', nodes.destroy),
         ]
@@ -40,6 +41,9 @@ class NodeGroup(cluster.util.NodeGroup):
         if user is not None: nkwargs['user'] = user
         if cwd is not None: nkwargs['cwd'] = cwd
         return (nodes.add_service(self.config, name, target, *command, **nkwargs) == 0)
+
+    def service_status(self, name, **kwargs):
+        return (nodes.service_status(self.config, name) == 0)
 
     def remove_service(self, name, **kwargs):
         return (nodes.remove_service(self.config, name) == 0)

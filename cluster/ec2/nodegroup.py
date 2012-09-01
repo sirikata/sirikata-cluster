@@ -18,6 +18,7 @@ class NodeGroup(cluster.util.NodeGroup):
         ('ec2 ssh', nodes.ssh),
         ('ec2 fix corosync', nodes.fix_corosync),
         ('ec2 add service', nodes.add_service),
+        ('ec2 service status', nodes.service_status),
         ('ec2 remove service', nodes.remove_service),
         ('ec2 node set type', nodes.set_node_type),
         ('ec2 status', nodes.status),
@@ -60,6 +61,9 @@ class NodeGroup(cluster.util.NodeGroup):
         if user is not None: nkwargs['user'] = user
         if cwd is not None: nkwargs['cwd'] = cwd
         return (nodes.add_service(self.config, name, target, *command, **nkwargs) == 0)
+
+    def service_status(self, name, **kwargs):
+        return (nodes.service_status(self.config, name) == 0)
 
     def remove_service(self, name, **kwargs):
         return (nodes.remove_service(self.config, name) == 0)
