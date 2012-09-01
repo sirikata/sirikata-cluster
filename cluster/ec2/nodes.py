@@ -10,7 +10,7 @@ import re
 
 def ssh_escape(x):
     '''Escaping rules are confusing... This escapes an argument enough to get it through ssh'''
-    if x.strip() == '&&' or x.strip() == '||' or x.strip() == '|': return x
+    if x.strip() in ['&&', '||', '|', '>', '2>', '&>']: return x
     return re.escape(x)
 
 
@@ -645,7 +645,7 @@ def status(*args, **kwargs):
 
 
 def add_service(*args, **kwargs):
-    """ec2 add service cluster_name_or_config service_id target_node|any [--pem=/path/to/pem.key] [--user=ubuntu] [--cwd=/path/to/execute] [--] command to run
+    """ec2 add service cluster_name_or_config service_id target_node|any [--pem=/path/to/pem.key] [--user=ubuntu] [--cwd=/path/to/execute] [--monitor=seconds] [--failover=bool] [--] command to run
 
     Add a service to run on the cluster. The service needs to be
     assigned a unique id (a string) and takes the form of a command
@@ -657,12 +657,16 @@ def add_service(*args, **kwargs):
 
     user specifies the user account that should execute the service
     cwd sets the working directory for the service
+    monitor if non-zero, monitor the process for liveness at the given interval. Required for 'service status' to work properly and defaults to true
+    failover if true, when monitor finds a failed service, it is automatically restarted. Defaults true
     """
 
     name_or_config, service_name, target_node, service_cmd = arguments.parse_or_die(add_service, [object, str, str], rest=True, *args)
     user = config.kwarg_or_default('user', kwargs, default='ubuntu')
     cwd = config.kwarg_or_default('cwd', kwargs, default='/home/ubuntu')
     pemfile = os.path.expanduser(config.kwarg_or_get('pem', kwargs, 'SIRIKATA_CLUSTER_PEMFILE'))
+    monitor = config.kwarg_or_default('monitor', kwargs, default=10)
+    failover = config.kwarg_or_default('failover', kwargs, default=True)
 
     if not len(service_cmd):
         print "You need to specify a command for the service"
@@ -694,6 +698,29 @@ def add_service(*args, **kwargs):
     # Args need to go into a single quoted string parameter
     service_args = ' '.join(service_cmd[1:])
 
+    # Then add the actual primitive
+    opt_args = []
+    if monitor:
+        opt_args += ['op', 'monitor', 'interval="%ss"' % (monitor)]
+        if not failover:
+            opt_args += ['on-fail="stop"']
+        # This says how many failures we can have before we
+        # migrate. We need to set it because some versions of
+        # pacemaker have broken on-fail options. This combined with
+        # location constraints keeps the service from coming back up.
+        opt_args += ['meta migration-threshold="1"']
+
+    # Run a cleanup operation first. This clears out any old state,
+    # for example fail counts which would have tuck around. This is
+    # critical as fail counts can leave things in a permanently bad
+    # state. FIXME However, in a sense this can also be bad as memory
+    # of the issue is lost. Eventually it would be nice to recover
+    # from errors more gracefully.
+    retcode = retcode = node_ssh(cc, 0,
+                                 'sudo', 'crm', 'resource', 'cleanup', service_name, '&>', '/dev/null'
+                                 )
+    # Ignore errors here since it can fail due to not having any stale state
+
     retcode = node_ssh(cc, 0,
                        'sudo', 'crm', 'configure', 'primitive',
                        service_name, 'ocf:sirikata:anything',
@@ -704,6 +731,7 @@ def add_service(*args, **kwargs):
                        'user=' + user,
                        'cwd=' + cwd,
                        'cmdline_options="' + service_args + '"',
+                       *opt_args
                        )
     if retcode != 0:
         print "Failed to add cluster service"
@@ -742,19 +770,32 @@ def service_status(*args, **kwargs):
 
     cname, cc = name_and_config(name_or_config)
 
-    # Check if the process can respond to signals, i.e. just if it is alive. the
-    # 'crm resource status foo' command doesn't return a useful status value, so
-    # we need to grep for output. If a service is *not* running, it prints to
-    # stderr that it is NOT running. If it *is* running, it prints that (unique
-    # word 'on:') to stdout. Since we want a 0 (success) return value if it's
-    # running, we grep for the success message on stdout.
+    # Unfortunately, the command line tools from pacemaker kind of
+    # suck since they won't directly give us the info we want. A
+    # service can be started, crash, and then monitoring will mark it
+    # as failed. If we have failover, it'll start up again, which is
+    # fine, but if it consistently fails or we don't have failover on
+    # (because we want to use this method to monitor the health of the
+    # process), it still reports the service as running on a node when
+    # queried about the specific service. If we ask about *all*
+    # services, it still says its started, but adds FAILED to the
+    # output. And none of this can be properly queried through command
+    # exit codes.
+    #
+    # So, to check if a service is running we a) ask for the status of
+    # all services and b) filter to the one line of the output we
+    # need, then c) check for 'Stopped' or 'FAILED' in the output to
+    # indicate something has gone wrong.
     retcode = node_ssh(cc, 0,
                        'sudo', 'crm', 'resource',
-                       'status', service_name,
-                       '|', 'grep', '-q', 'on:'
+                       'status', # all statuses
+                       '|', 'grep', '^ ' + service_name, # filter to service, which should appear at beginning of the line
+                       '|', 'grep', '-q', '-e', 'Stopped', '-e', 'FAILED'
                        )
-
-    return retcode
+    # Since we checked for *failure*, we actually need to invert the result
+    if retcode == 0: # grep found stopped or failed
+        return 1
+    return 0
 
 def remove_service(*args, **kwargs):
     """ec2 remove service cluster_name_or_config service_id [--pem=/path/to/pem.key]

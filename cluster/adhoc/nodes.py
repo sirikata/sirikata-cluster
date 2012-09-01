@@ -10,7 +10,7 @@ import re
 
 def ssh_escape(x):
     '''Escaping rules are confusing... This escapes an argument enough to get it through ssh'''
-    if x.strip() == '&&' or x.strip() == '||' or x.strip() == '|': return x
+    if x.strip() in ['&&', '||', '|', '>', '2>', '&>']: return x
     return re.escape(x)
 
 def name_and_config(name_or_config):
