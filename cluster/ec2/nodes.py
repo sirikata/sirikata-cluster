@@ -230,11 +230,12 @@ def import_nodes(*args, **kwargs):
 
     conn = EC2Connection(config.AWS_ACCESS_KEY_ID, config.AWS_SECRET_ACCESS_KEY)
 
+    instances_to_add = list(instances_to_add)
     if len(instances_to_add) == 0:
         print "No instances specified, trying to use full list of account instances..."
         reservations = conn.get_all_instances()
         for res in reservations:
-            instances_to_add += list(res.instances)
+            instances_to_add += [inst.id for inst in res.instances]
     if len(instances_to_add) != cc.size:
         print "Number of instances doesn't match the cluster size. Make sure you explicitly specify %d instances" % (cc.size)
         return 1

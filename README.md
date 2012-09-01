@@ -169,6 +169,14 @@ For that, just ask for the nodes to be booted:
 
     ./sirikata-cluster.py ec2 nodes boot mycluster
 
+Or, if you are using spot instances:
+
+    ./sirikata-cluster.py ec2 nodes request spot instances mycluster 0.01
+    # Wait for request to be fulfilled
+    ./sirikata-cluster.py ec2 nodes import mycluster 
+    # Or, to manually add instances:
+    # ./sirikata-cluster.py ec2 nodes import mycluster i-4567899 i-9876544
+
 While they're active, you can get an ssh prompt into one of the nodes:
 
     ./sirikata-cluster.py ec2 node ssh mycluster 1 [--pem=my_ec2_ssh_key.pem]
