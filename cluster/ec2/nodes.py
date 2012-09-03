@@ -543,7 +543,11 @@ def node_ssh(*args, **kwargs):
     instance_info = instances_info[0].instances[0]
     pub_dns_name = instance_info.public_dns_name
 
-    cmd = ["ssh", "-i", pemfile, "ubuntu@" + pub_dns_name] + [ssh_escape(x) for x in remote_cmd]
+    # StrictHostKeyChecking no -- causes the "authenticity of host can't be
+    # established" messages to not show up, and therefore not require prompting
+    # the user. Not entirely safe, but much less annoying than having each node
+    # require user interaction during boot phase
+    cmd = ["ssh", "-o", "StrictHostKeyChecking no", "-i", pemfile, "ubuntu@" + pub_dns_name] + [ssh_escape(x) for x in remote_cmd]
     return subprocess.call(cmd)
 
 
