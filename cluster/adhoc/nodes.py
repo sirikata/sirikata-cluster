@@ -106,7 +106,7 @@ def sync_sirikata(*args, **kwargs):
     Synchronize Sirikata binaries by copying the specified data to this cluster's nodes.
     """
 
-    name_or_config, path = arguments.parse_or_die(ssh, [object, str], *args)
+    name_or_config, path = arguments.parse_or_die(sync_sirikata, [object, str], *args)
 
     name, cc = name_and_config(name_or_config)
 
@@ -149,7 +149,7 @@ def sync_files(*args, **kwargs):
     Synchronize files or directories between a the local host and a cluster node.
     """
 
-    name_or_config, idx_or_name_or_node, src_path, dest_path = arguments.parse_or_die(ssh, [object, object, str, str], *args)
+    name_or_config, idx_or_name_or_node, src_path, dest_path = arguments.parse_or_die(sync_files, [object, object, str, str], *args)
 
     name, cc = name_and_config(name_or_config)
 

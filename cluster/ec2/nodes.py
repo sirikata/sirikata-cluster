@@ -577,7 +577,7 @@ def sync_files(*args, **kwargs):
     Synchronize files or directories between a the local host and a cluster node.
     """
 
-    name_or_config, idx_or_name_or_node, src_path, dest_path = arguments.parse_or_die(ssh, [object, object, str, str], *args)
+    name_or_config, idx_or_name_or_node, src_path, dest_path = arguments.parse_or_die(sync_files, [object, object, str, str], *args)
     pemfile = os.path.expanduser(config.kwarg_or_get('pem', kwargs, 'SIRIKATA_CLUSTER_PEMFILE'))
 
     name, cc = name_and_config(name_or_config)
@@ -769,7 +769,7 @@ def service_status(*args, **kwargs):
     active and running, non-zero otherwise.
     """
 
-    name_or_config, service_name = arguments.parse_or_die(remove_service, [object, str], *args)
+    name_or_config, service_name = arguments.parse_or_die(service_status, [object, str], *args)
     pemfile = os.path.expanduser(config.kwarg_or_get('pem', kwargs, 'SIRIKATA_CLUSTER_PEMFILE'))
 
     cname, cc = name_and_config(name_or_config)
