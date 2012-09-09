@@ -226,7 +226,7 @@ def add_service(*args, **kwargs):
     if force_daemonize:
         daemon_cmd += ['--background', '--make-pidfile']
     daemon_cmd += ['--exec', service_binary,
-                   '--'] + [arg.replace('PIDFILE', pidfile) for arg in service_cmd[1:]]
+                   '--'] + [arg.replace('PIDFILE', pidfile).replace('FQDN', cc.hostname(node=target_node)) for arg in service_cmd[1:]]
     retcode = node_ssh(cc, target_node,
                        *daemon_cmd)
     if retcode != 0:

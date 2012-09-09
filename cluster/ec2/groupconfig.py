@@ -24,6 +24,8 @@ class EC2GroupConfig(NodeGroupConfig):
         return 'ubuntu'
 
     def hostname(self, node=None):
+        if hasattr(node, 'dns_name'):
+            return node.dns_name
         return node['dns_name']
 
     def sirikata_path(self, node=None):

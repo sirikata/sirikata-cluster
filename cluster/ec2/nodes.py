@@ -339,6 +339,9 @@ def pacemaker_id(inst):
 def get_node_pacemaker_id(cc, conn, node_name):
     return pacemaker_id(get_node(cc, conn, node_name))
 
+def get_node_hostname(cc, conn, node_name):
+    return cc.hostname(node=get_node(cc, conn, node_name))
+
 def wait_pingable(*args, **kwargs):
     '''Wait for nodes to become pingable, with an optional timeout.'''
 
@@ -687,6 +690,10 @@ def add_service(*args, **kwargs):
     if target_node != 'any':
         conn = EC2Connection(config.AWS_ACCESS_KEY_ID, config.AWS_SECRET_ACCESS_KEY)
         target_node_pacemaker_id = get_node_pacemaker_id(cc, conn, target_node)
+        target_node_hostname = get_node_hostname(cc, conn, target_node)
+    else:
+        print "WARNING: Random node selection won't work with FQDN currently"
+        target_node_hostname = 'BAD_SIRIKATA_CLUSTER_EC2_HOSTNAME'
 
     # Make sure this cluster is in "opt in" mode, i.e. that services
     # won't be run anywhere, only where we say it's ok to
@@ -699,7 +706,7 @@ def add_service(*args, **kwargs):
     # Clean up arguments
     # node=None because we only have generic versions and don't have a real node object to pass in
     pidfile = os.path.join(cc.workspace_path(node=None), 'sirikata_%s.pid' % (service_name) )
-    service_cmd = [ssh_escape(arg.replace('PIDFILE', pidfile)) for arg in service_cmd]
+    service_cmd = [ssh_escape(arg.replace('PIDFILE', pidfile).replace('FQDN', target_node_hostname)) for arg in service_cmd]
     service_binary = service_cmd[0]
     # Args need to go into a single quoted string parameter
     service_args = ' '.join(service_cmd[1:])
