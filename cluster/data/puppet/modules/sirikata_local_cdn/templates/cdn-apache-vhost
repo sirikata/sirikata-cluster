@@ -1,0 +1,16 @@
+<VirtualHost *:80>
+	ServerAdmin webmaster@localhost
+        ServerName <%= ec2_public_hostname %>
+
+	DocumentRoot /home/ubuntu/models
+	<Directory /home/ubuntu/models/>
+		Options Indexes FollowSymLinks MultiViews
+		AllowOverride None
+		Order allow,deny
+		allow from all
+	</Directory>
+
+	ErrorLog /var/log/apache2/cdn.error.log
+	LogLevel warn
+	CustomLog /var/log/apache2/cdn.access.log combined
+</VirtualHost>

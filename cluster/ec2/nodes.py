@@ -69,6 +69,8 @@ def create_security_group(*args, **kwargs):
     ensure_rule('icmp', -1, -1, '0.0.0.0/0')
     # SSH: TCP 22
     ensure_rule('tcp', 22, 22, '0.0.0.0/0')
+    # Web (local cdn node): TCP 80
+    ensure_rule('tcp', 80, 80, '0.0.0.0/0')
     # Corosync: TCP + UDP 5405
     ensure_rule('tcp', 5405, 5405, '0.0.0.0/0')
     ensure_rule('udp', 5405, 5405, '0.0.0.0/0')

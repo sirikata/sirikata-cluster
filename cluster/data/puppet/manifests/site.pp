@@ -3,6 +3,7 @@
 # probably only be Sirikata + one other service.
 node default {
   include sirikata
+  include sirikata_local_cdn
 }
 
 node sirikata_redis inherits default {
