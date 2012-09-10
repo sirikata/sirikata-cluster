@@ -822,10 +822,13 @@ def remove_service(*args, **kwargs):
     cname, cc = name_and_config(name_or_config)
 
     # Stop the service first
-    retcode = node_ssh(cc, 0,
-                       'sudo', 'crm', 'resource',
-                       'stop', service_name
-                       )
+    retries, retcode = 3, 1
+    while retcode != 0 and retries > 0:
+        retcode = node_ssh(cc, 0,
+                           'sudo', 'crm', 'resource',
+                           'stop', service_name
+                           )
+        retries -= 1
 
     # Need to give it some time to shut down the process
     time.sleep(10)
@@ -834,17 +837,25 @@ def remove_service(*args, **kwargs):
         print "Failed to stop process, but still trying to remove the service..."
 
     # Remove location constraint
-    retcode = node_ssh(cc, 0,
-                       'sudo', 'crm', 'configure',
-                       'delete', service_name + '-location'
-                       )
+    retries, retcode = 3, 1
+    while retcode != 0 and retries > 0:
+        retcode = node_ssh(cc, 0,
+                           'sudo', 'crm', 'configure',
+                           'delete', service_name + '-location'
+                           )
+        retries -= 1
+
     if retcode != 0:
         print "Failed to remove location constraint, but still trying to remove the service..."
 
-    retcode = node_ssh(cc, 0,
-                       'sudo', 'crm', 'configure',
-                       'delete', service_name
-                       )
+    retries, retcode = 3, 1
+    while retcode != 0 and retries > 0:
+        retcode = node_ssh(cc, 0,
+                           'sudo', 'crm', 'configure',
+                           'delete', service_name
+                           )
+        retries -= 1
+
     if retcode != 0:
         print "Failed to remove service."
     return retcode
