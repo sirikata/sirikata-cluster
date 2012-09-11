@@ -237,7 +237,7 @@ def import_nodes(*args, **kwargs):
         print "No instances specified, trying to use full list of account instances..."
         reservations = conn.get_all_instances()
         for res in reservations:
-            instances_to_add += [inst.id for inst in res.instances]
+            instances_to_add += [inst.id for inst in res.instances if inst.state == 'running']
     if len(instances_to_add) != cc.size:
         print "Number of instances doesn't match the cluster size. Make sure you explicitly specify %d instances" % (cc.size)
         return 1
