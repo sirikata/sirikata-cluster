@@ -4,11 +4,19 @@ class sirikata_local_cdn {
   # as its own CDN so a centralized CDN isn't required for upload,
   # which can be quite expensive
 
-  # Storage space
-  file { '/home/ubuntu/models':
+  # Storage space  file
+  # This is on EC2 instance storage, which is temporary storage and
+  # much faster, probably worth putting it here instead, but either
+  # location is ok
+  file { '/mnt/models':
     ensure => directory,
     owner => 'ubuntu',
     group => 'ubuntu',
+  }
+  file { '/home/ubuntu/models':
+    ensure => symlink,
+    target => '/mnt/models',
+    require => File['/mnt/models']
   }
 
   # The server itself
