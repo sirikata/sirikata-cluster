@@ -23,11 +23,7 @@ this:
   all into the EC2 initialization and allows the configuration to be
   updated after the nodes are created.
 * Puppet sets up our core set of software: the Sirikata binaries
-  (which we can specify the location of) and corosync+pacemaker for
-  managing the cluster member set and mapping service requests to
-  specific ndoes. It can also deal with failover if we want it. Note
-  that this doesn't require any head node -- the only "head node" is
-  the puppet master providing configuration.
+  (which we can specify the location of).
 * Once that's all setup, we just need to add/remove services from the
   cluster. Helper scripts are aware of the specifics of Sirikata to
   make adding services simpler.
@@ -79,24 +75,6 @@ default layout, in which case you can just:
 
 You'll need to enter your sudo password to edit/add files under
 /etc/puppet.
-
-
-Corosync One-time Configuration
--------------------------------
-
-You'll also need to setup an authkey for corosync. All nodes need to
-use the same key -- they just check it to make sure they're talking to
-who they are supposed to be talking to. You need to generate the key
-manually:
-
-    sudo corosync-keygen
-
-which will leave it in /etc/corosync/authkey. We're going to copy it
-to the nodes automatically, we just need to deposit it in the right
-location:
-
-    mkdir -p /etc/puppet/modules/sirikata/files/etc/corosync
-    cp /etc/corosync/authkey /etc/puppet/modules/sirikata/files/etc/corosync/
 
 
 Sirikata Packaging
@@ -155,11 +133,11 @@ the appropriate settings. You can do this manually, but a simple (but
 relatively less secured) default configuration will work for a
 Sirikata cluster:
 
-    ./sirikata-cluster.py ec2 security create "sirikata-cluster" "Cluster deployment of Sirikata including Corosync/Pacemaker and Puppet"
+    ./sirikata-cluster.py ec2 security create "sirikata-cluster" "Cluster deployment of Sirikata including Puppet"
 
 This command is useful since there are a few extra ports these scripts
-require for puppet, corosync, and pacemaker. It also opens up SSH and
-a range of ports commonly used by Sirikata.
+require for puppet, SSH, and a range of ports commonly used by
+Sirikata.
 
 Next, you can create a cluster specification:
 
@@ -194,25 +172,6 @@ optional above because you can also specify it via the environment
 variable SIRIKATA_CLUSTER_PEMFILE, which is nicer since it's used by a
 number of commands (sometimes indirectly where it may not be obvious
 it is needed).
-
-
-Unfortunately, because the version of corosync available, the nodes
-can't just figure out which other nodes are available by
-themselves. We need to provide each node with a list. There are a
-couple of steps involved -- getting the list of addresses, updating
-the puppet master config, and forcing all the nodes to re-run their
-puppet configurations. Once the puppet configurations are updated,
-they take care of updating corosync and restarting it. Finally, there
-is one more modification which needs to be run on one of the nodes to
-make the cluster usable (stonith-enabled=false). We've wrapped this
-whole process into a single command (you can look at the code to see
-the individual steps):
-
-    ./sirikata-cluster.py ec2 fix corosync mycluster [--pem=my_ec2_ssh_key.pem]
-
-(Note that this assumes a local puppet master in the default location).
-At this point, you should have the nodes ready for executing pacemaker
-resources (i.e. services).
 
 When you're done with the nodes, terminate them:
 

@@ -50,6 +50,7 @@ class EC2GroupConfig(NodeGroupConfig):
         if type(idx_or_name_or_node) == int:
             return self.state['instances'][idx_or_name_or_node]
 
+        # String containing valid id, or index
         if type(idx_or_name_or_node) == str or type(idx_or_name_or_node) == unicode:
             if ( any([x == idx_or_name_or_node for x in self.state['instances']]) ):
                 return idx_or_name_or_node
@@ -60,4 +61,7 @@ class EC2GroupConfig(NodeGroupConfig):
                 pass
             raise Exception("Couldn't decode %s as index, name, or node object" % (idx_or_name_or_node))
 
+        # Otherwise, it should be boto Instance or our instance dict
+        if hasattr(idx_or_name_or_node, 'id'):
+            return idx_or_name_or_node.id
         return idx_or_name_or_node['id']

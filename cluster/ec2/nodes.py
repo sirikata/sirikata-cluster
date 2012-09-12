@@ -28,7 +28,7 @@ def create_security_group(*args, **kwargs):
     """ec2 security create security_group_name security_group_description
 
     Create a new security group with settings reasonable for a
-    Sirikata cluster -- ssh access, corosync and puppet ports open,
+    Sirikata cluster -- ssh access and puppet ports open,
     ICMP enabled, and a range of ports commonly used by Sirikata open
     to TCP (6000 - 10000).
 
@@ -71,9 +71,6 @@ def create_security_group(*args, **kwargs):
     ensure_rule('tcp', 22, 22, '0.0.0.0/0')
     # Web (local cdn node): TCP 80
     ensure_rule('tcp', 80, 80, '0.0.0.0/0')
-    # Corosync: TCP + UDP 5405
-    ensure_rule('tcp', 5405, 5405, '0.0.0.0/0')
-    ensure_rule('udp', 5405, 5405, '0.0.0.0/0')
     # Puppet: TCP 8139
     ensure_rule('tcp', 8139, 8139, '0.0.0.0/0')
     # Sirikata: TCP 6000-10000
@@ -117,12 +114,12 @@ def boot(*args, **kwargs):
 
     Boot a cluster's nodes. The command will block for wait-timeout
     seconds, or until all nodes reach a ready state (currently defined
-    as being pingable and containing two files indicating readiness of
-    Sirikata and Pacemaker). A wait-timeout of 0 disables this. A pem
+    as being pingable and containing files indicating readiness.
+    A wait-timeout of 0 disables this. A pem
     file, either passed on the command line or through the environment
     is required for the timeout to work properly. Note that with
-    timeouts enabled, this will run 'cluster fix corosync' as well as
-    that is required for the nodes to reach a ready state.
+    timeouts enabled, this will check that the nodes reach a ready
+    state.
     """
 
     name_or_config = arguments.parse_or_die(boot, [object], *args)
@@ -156,6 +153,16 @@ def boot(*args, **kwargs):
     # Save reservation, instance info
     cc.state['reservation'] = reservation.id
     cc.state['instances'] = [inst.id for inst in reservation.instances]
+    # Cache some information about the instances which shouldn't change
+    cc.state['instance_props'] = dict(
+        [
+            (inst.id, {
+                    'id' : inst.id,
+                    'ip' : inst.ip_address,
+                    'hostname' : inst.dns_name,
+                    'private_ip' : inst.private_ip_address,
+                    'private_hostname' : inst.private_dns_name,
+                    }) for inst in reservation.instances])
     cc.save()
 
     return name_and_boot_nodes(cc, conn, pemfile, timeout)
@@ -212,12 +219,12 @@ def import_nodes(*args, **kwargs):
     Import instances from a spot reservation and then perform the boot sequence on them.
     The command will block for wait-timeout
     seconds, or until all nodes reach a ready state (currently defined
-    as being pingable and containing two files indicating readiness of
-    Sirikata and Pacemaker). A wait-timeout of 0 disables this. A pem
+    as being pingable and containing files indicating readiness.
+    A wait-timeout of 0 disables this. A pem
     file, either passed on the command line or through the environment
     is required for the timeout to work properly. Note that with
-    timeouts enabled, this will run 'cluster fix corosync' as well as
-    that is required for the nodes to reach a ready state.
+    timeouts enabled, this will check that the nodes reach a ready
+    state.
     """
 
     name_or_config, instances_to_add = arguments.parse_or_die(import_nodes, [object], rest=True, *args)
@@ -252,6 +259,16 @@ def import_nodes(*args, **kwargs):
         print "Only got %d instances back, you'll need to manually clean things up..." % len(instances)
         return 1
 
+    # Cache some information about the instances which shouldn't change
+    cc.state['instance_props'] = dict(
+        [
+            (instid, {
+                    'id' : instances[instid].id,
+                    'ip' : instances[instid].ip_address,
+                    'hostname' : instances[instid].dns_name,
+                    'private_ip' : instances[instid].private_ip_address,
+                    'private_hostname' : instances[instid].private_dns_name,
+                    }) for instid in instances_to_add])
     cc.save()
 
     return name_and_boot_nodes(cc, conn, pemfile, timeout)
@@ -278,9 +295,8 @@ def name_and_boot_nodes(cc, conn, pemfile, timeout):
         print "Sleeping to allow nodes to finish booting"
         time.sleep(15)
         print "Waiting for initial services and Sirikata binaries to install"
-        wait_ready(cc, '/home/ubuntu/ready/corosync-service', '/home/ubuntu/ready/sirikata', timeout=timeout, **pem_kwargs)
-        print "Fixing corosync configuration..."
-        fix_corosync(cc, **pem_kwargs)
+        ready = wait_ready(cc, '/home/ubuntu/ready/sirikata', timeout=timeout, **pem_kwargs)
+        return ready
 
     return 0
 
@@ -304,8 +320,7 @@ def get_all_ips(cc, conn):
 def get_node(cc, conn, node_name):
     '''Returns a node's instance info based on any of a number of
     'names'. A pure number will be used directly as an index. The name
-    can also match the node's id, private or public IP or dns name, or
-    it's pacemaker ID (which is based on the internal IP).
+    can also match the node's id, private or public IP or dns name.
     '''
 
     instances = get_all_instances(cc, conn)
@@ -326,15 +341,23 @@ def get_node(cc, conn, node_name):
 def get_node_index(cc, conn, node_name):
     '''Returns a node index based on any of a number of 'names'. A
     pure number will be used directly as an index. The name can also
-    match the node's id, private or public IP or dns name, or it's
-    pacemaker ID (which is based on the internal IP).
+    match the node's id, private or public IP or dns name.
     '''
     inst = get_node(cc, conn, node_name).index
     return cc.state['instances'].index(inst.id)
 
 def pacemaker_id(inst):
-    assert( inst.private_dns_name.find('.') != -1 )
-    return inst.private_dns_name[:inst.private_dns_name.find('.')]
+    if hasattr(inst, 'private_dns_name'):
+        private_dns_name = inst.private_dns_name
+    else:
+        assert('private_dns_name' in inst or 'private_hostname' in inst)
+        if 'private_hostname' in inst:
+            private_dns_name = inst['private_hostname']
+        else:
+            private_dns_name = inst['private_dns_name']
+
+    assert( private_dns_name.find('.') != -1 )
+    return private_dns_name[:private_dns_name.find('.')]
 
 def get_node_pacemaker_id(cc, conn, node_name):
     return pacemaker_id(get_node(cc, conn, node_name))
@@ -388,7 +411,7 @@ def wait_pingable(*args, **kwargs):
 def wait_ready(*args, **kwargs):
     '''Wait for nodes to become ready, with an optional timeout. Ready
     means that puppet has finished configuring packages and left
-    indicators that both Sirikata and Pacemaker are available. You
+    indicators that initial puppet configuration has completed. You
     should make sure all nodes are pingable before running this.'''
 
     name_or_config, files_to_check = arguments.parse_or_die(wait_ready, [object], rest=True, *args)
@@ -427,63 +450,6 @@ def wait_ready(*args, **kwargs):
     return 0
 
 
-
-def members_address(*args, **kwargs):
-    """ec2 members address list cluster_name_or_config
-
-    Get a list of members addresses. This is used to seed the list of
-    members in a corosync configuration (which you'll do through
-    puppet).
-    """
-
-    name_or_config = arguments.parse_or_die(members_address, [object], *args)
-    name, cc = name_and_config(name_or_config)
-
-    if 'instances' not in cc.state:
-        print "It doesn't look like you've booted the cluster yet..."
-        exit(1)
-
-    conn = EC2Connection(config.AWS_ACCESS_KEY_ID, config.AWS_SECRET_ACCESS_KEY)
-    ips = get_all_ips(cc, conn).values()
-
-    corosync_conf = data.load('corosync', 'corosync.conf.template')
-    # Cluster members
-    member_section = ""
-    for ip in ips:
-        member_section += """
-                member {
-                        memberaddr: %s
-                }""" % (ip)
-    # Quorum members
-    quorum_member_section = """
-                nodelist {"""
-    for idx,ip in enumerate(ips):
-        quorum_member_section += """
-                        node {
-                                ring0_addr: %s
-                                nodeid: %d
-                        }""" % (ip, idx)
-    quorum_member_section += """
-                }"""
-
-    corosync_conf = corosync_conf.replace('{{{MEMBERS}}}', member_section)
-    corosync_conf = corosync_conf.replace('{{{QUORUM_MEMBERS}}}', quorum_member_section)
-    data.save(corosync_conf, 'puppet', 'modules', 'sirikata', 'templates', 'corosync.conf')
-
-    print
-    print "These are the addresses I found:", ips
-    print """
-I've generated a configuration template that Puppet needs to use to
-configure clients. I've saved it in
-data/puppet/templates/corosync.conf. You need to put it into your
-Puppet master's configuration
-directory. If you're running the Puppet master locally, run
-
-  sudo cp data/puppet/templates/corosync.conf /etc/puppet/templates/corosync.conf
-
-"""
-
-
 def members_info_data(*args, **kwargs):
     """ec2 members info cluster_name_or_config
 
@@ -493,27 +459,24 @@ def members_info_data(*args, **kwargs):
     name_or_config = arguments.parse_or_die(members_info, [object], *args)
     name, cc = name_and_config(name_or_config)
 
-    if 'instances' not in cc.state:
+    if 'instances' not in cc.state or 'instance_props' not in cc.state:
         print "It doesn't look like you've booted the cluster yet..."
         exit(1)
 
-    conn = EC2Connection(config.AWS_ACCESS_KEY_ID, config.AWS_SECRET_ACCESS_KEY)
-    instances = get_all_instances(cc, conn)
-
+    # We provide a bit more than what we store in the file
+    inst_map = dict([ (instid,cc.state['instance_props'][instid]) for instid in cc.state['instances']])
     instances = [
         {
-            'id' : inst.id,
-            'pacemaker_id' : pacemaker_id(inst),
-
-            'ip' : inst.ip_address,
-            'dns_name' : inst.dns_name,
-            'private_ip' : inst.private_ip_address,
-            'private_dns_name' : inst.private_dns_name,
-
-            'state' : inst.state,
-            'instance_type' : inst.instance_type,
+            'id' : inst['id'],
+            'ip' : inst['ip'],
+            'hostname' : inst['hostname'],
+            'dns_name' : inst['hostname'], # alias
+            'private_ip' : inst['private_ip'],
+            'private_hostname' : inst['private_hostname'],
+            'private_dns_name' : inst['private_hostname'], # alias
+            'pacemaker_id' : pacemaker_id(inst), # computed
             }
-        for instid, inst in instances.iteritems()]
+        for instid,inst in inst_map.iteritems()]
 
     return instances
 
@@ -542,19 +505,14 @@ def node_ssh(*args, **kwargs):
         print "It doesn't look like you've booted the cluster yet..."
         exit(1)
 
-    conn = EC2Connection(config.AWS_ACCESS_KEY_ID, config.AWS_SECRET_ACCESS_KEY)
-    instances_info = conn.get_all_instances(instance_ids = [ cc.get_node_name(idx_or_name_or_node) ])
-    # Should get back a list of one reservation with one instance in it
-    instance_info = instances_info[0].instances[0]
-    pub_dns_name = instance_info.public_dns_name
+    inst_info = cc.state['instance_props'][cc.get_node_name(idx_or_name_or_node)]
 
     # StrictHostKeyChecking no -- causes the "authenticity of host can't be
     # established" messages to not show up, and therefore not require prompting
     # the user. Not entirely safe, but much less annoying than having each node
     # require user interaction during boot phase
-    cmd = ["ssh", "-o", "StrictHostKeyChecking no", "-i", pemfile, "ubuntu@" + pub_dns_name] + [ssh_escape(x) for x in remote_cmd]
+    cmd = ["ssh", "-o", "StrictHostKeyChecking no", "-i", pemfile, cc.user() + "@" + inst_info['hostname']] + [ssh_escape(x) for x in remote_cmd]
     return subprocess.call(cmd)
-
 
 def ssh(*args, **kwargs):
     """ec2 ssh cluster_name_or_config [--pem=/path/to/key.pem] [required additional arguments give command just like with real ssh]
@@ -593,68 +551,33 @@ def sync_files(*args, **kwargs):
 
     # Get remote info
     conn = EC2Connection(config.AWS_ACCESS_KEY_ID, config.AWS_SECRET_ACCESS_KEY)
-    instances_info = conn.get_all_instances(instance_ids = [ cc.get_node_name(idx_or_name_or_node) ])
-    # Should get back a list of one reservation with one instance in it
-    instance_info = instances_info[0].instances[0]
-    pub_dns_name = instance_info.public_dns_name
-    node_address = "ubuntu@" + pub_dns_name + ":"
+    if idx_or_name_or_node == 'all':
+        instances_info = [ inst_props for instid, inst_props in cc.state['instance_props'].iteritems() ]
+    else:
+        instances_info = [ cc.state['instance_props'][cc.get_node_name(idx_or_name_or_node)] ]
 
-    # Get correct values out for names
-    paths = [src_path, dest_path]
-    paths = [p.replace('local:', '').replace('remote:', node_address) for p in paths]
-    src_path, dest_path = tuple(paths)
+    results = []
+    for instance_info in instances_info:
+        node_address = cc.user() + "@" + instance_info['hostname'] + ':'
 
-    # Make a single copy onto one of the nodes
-    return subprocess.call(["rsync", "-e", "ssh -i " + pemfile, src_path, dest_path])
+        # Get correct values out for names
+        paths = [src_path, dest_path]
+        paths = [p.replace('local:', '').replace('remote:', node_address) for p in paths]
+        src_path_final, dest_path_final = tuple(paths)
 
+        # Make a single copy onto one of the nodes
+        results.append( subprocess.call(["rsync", "-e", "ssh -i " + pemfile, src_path_final, dest_path_final]) )
+        #results.append( subprocess.call(["scp", "-i", pemfile, src_path_final, dest_path_final]) )
 
-def fix_corosync(*args, **kwargs):
-    """ec2 fix corosync cluster_name_or_config [--pem=/path/to/key.pem]
-
-    Fix the corosync configuration to use the set of nodes that have
-    now booted up.
-    """
-
-    name_or_config = arguments.parse_or_die(fix_corosync, [object], *args)
-    pemfile = os.path.expanduser(config.kwarg_or_get('pem', kwargs, 'SIRIKATA_CLUSTER_PEMFILE'))
-
-    # Sequence is:
-    # 1. Get the updated list of nodes and generate configuration
-    members_address(name_or_config)
-    # 2. Update our local puppet master
-    puppet.master_config('--yes')
-    # 3. Touch the indicator file so the puppets know they can proceed with starting corosync
-    ssh(name_or_config, 'touch', '/home/ubuntu/ready/corosync-configured', pem=pemfile)
-    # 3. Restart slave puppets, making them pick up the new config and
-    # restart corosync
-    puppet.slaves_restart(name_or_config, pem=pemfile)
-
-    print "Waiting for nodes to become ready with pacemaker..."
-    cname, cc = name_and_config(name_or_config)
-    pem_kwargs = {}
-    if pemfile is not None: pem_kwargs['pem'] = pemfile
-    wait_ready(cc, '/home/ubuntu/ready/pacemaker', timeout=300, **pem_kwargs)
-
-    # 4. Verifying good state
-    print "Verifying that the cluster is in a good state. If the following command outputs messages, something is wrong..."
-    node_ssh(name_or_config, 0, 'sudo', 'crm_verify', '-L', pem=pemfile)
-
-
-def status(*args, **kwargs):
-    """ec2 status cluster_name [--pem=/path/to/key.pem]
-
-    Give status of the cluster. This just runs crm_mon -1 on one of the cluster nodes.
-    """
-
-    name_or_config = arguments.parse_or_die(status, [object], *args)
-    pemfile = os.path.expanduser(config.kwarg_or_get('pem', kwargs, 'SIRIKATA_CLUSTER_PEMFILE'))
-
-    return node_ssh(name_or_config, 0, 'sudo', 'crm_mon', '-1', pem=pemfile)
-
+    # Just pick one non-zero return value if any failed
+    failed = [res for res in results if res != 0]
+    if failed:
+        return failed[0]
+    return 0
 
 
 def add_service(*args, **kwargs):
-    """ec2 add service cluster_name_or_config service_id target_node|any [--pem=/path/to/pem.key] [--user=ubuntu] [--cwd=/path/to/execute] [--monitor=seconds] [--failover=bool] [--] command to run
+    """adhoc add service cluster_name_or_config service_id target_node|any [--user=user] [--cwd=/path/to/execute] [--] command to run
 
     Add a service to run on the cluster. The service needs to be
     assigned a unique id (a string) and takes the form of a command
@@ -666,199 +589,138 @@ def add_service(*args, **kwargs):
 
     user specifies the user account that should execute the service
     cwd sets the working directory for the service
-    monitor if non-zero, monitor the process for liveness at the given interval. Required for 'service status' to work properly and defaults to true
-    failover if true, when monitor finds a failed service, it is automatically restarted. Defaults true
+
+    To make handling PID files easier, any appearance of PIDFILE in
+    your command arguments will be replaced with the path to the PID
+    file selected. For example, you might add --pid-file=PIDFILE as an
+    argument.
     """
 
     name_or_config, service_name, target_node, service_cmd = arguments.parse_or_die(add_service, [object, str, str], rest=True, *args)
-    user = config.kwarg_or_default('user', kwargs, default='ubuntu')
-    cwd = config.kwarg_or_default('cwd', kwargs, default='/home/ubuntu')
-    pemfile = os.path.expanduser(config.kwarg_or_get('pem', kwargs, 'SIRIKATA_CLUSTER_PEMFILE'))
-    monitor = config.kwarg_or_default('monitor', kwargs, default=10)
-    failover = config.kwarg_or_default('failover', kwargs, default=True)
+    cname, cc = name_and_config(name_or_config)
+
+    user = config.kwarg_or_default('user', kwargs, default=None)
+    cwd = config.kwarg_or_default('cwd', kwargs, default=None)
+    force_daemonize = bool(config.kwarg_or_default('force-daemonize', kwargs, default=False))
 
     if not len(service_cmd):
         print "You need to specify a command for the service"
         return 1
+
+    if 'services' not in cc.state: cc.state['services'] = {}
+    if service_name in cc.state['services']:
+        print "The requested service already exists."
+        return 1
+
     if not os.path.isabs(service_cmd[0]):
         print "The path to the service's binary isn't absolute (%s)" % service_cmd[0]
         print args
         print service_cmd
         return 1
 
-    cname, cc = name_and_config(name_or_config)
-    if target_node != 'any':
-        conn = EC2Connection(config.AWS_ACCESS_KEY_ID, config.AWS_SECRET_ACCESS_KEY)
-        target_node_pacemaker_id = get_node_pacemaker_id(cc, conn, target_node)
-        target_node_hostname = get_node_hostname(cc, conn, target_node)
-    else:
-        print "WARNING: Random node selection won't work with FQDN currently"
-        target_node_hostname = 'BAD_SIRIKATA_CLUSTER_EC2_HOSTNAME'
+    conn = EC2Connection(config.AWS_ACCESS_KEY_ID, config.AWS_SECRET_ACCESS_KEY)
+    target_node_inst = get_node(cc, conn, target_node)
+    target_node_pacemaker_id = get_node_pacemaker_id(cc, conn, target_node)
+    target_node_hostname = get_node_hostname(cc, conn, target_node)
 
-    # Make sure this cluster is in "opt in" mode, i.e. that services
-    # won't be run anywhere, only where we say it's ok to
-    # (i.e. default rule is -INF score)
-    retcode = node_ssh(cc, 0, 'sudo', 'crm_attribute', '--attr-name', 'symmetric-cluster', '--attr-value', 'false')
-    if retcode != 0:
-        print "Couldn't set cluster to opt-in mode."
-        return retcode
+    # Can now get default values that depend on the node
+    if user is None: user = cc.user(target_node)
+    if cwd is None: cwd = cc.default_working_path(target_node)
 
-    # Clean up arguments
-    # node=None because we only have generic versions and don't have a real node object to pass in
-    pidfile = os.path.join(cc.workspace_path(node=None), 'sirikata_%s.pid' % (service_name) )
-    service_cmd = [ssh_escape(arg.replace('PIDFILE', pidfile).replace('FQDN', target_node_hostname)) for arg in service_cmd]
     service_binary = service_cmd[0]
-    # Args need to go into a single quoted string parameter
-    service_args = ' '.join(service_cmd[1:])
 
-    # Then add the actual primitive
-    opt_args = []
-    if monitor:
-        opt_args += ['op', 'monitor', 'interval="%ss"' % (monitor)]
-        if not failover:
-            opt_args += ['on-fail="stop"']
-        # This says how many failures we can have before we
-        # migrate. We need to set it because some versions of
-        # pacemaker have broken on-fail options. This combined with
-        # location constraints keeps the service from coming back up.
-        opt_args += ['meta migration-threshold="1"']
+    pidfile = os.path.join(cc.workspace_path(), 'sirikata_%s.pid' % (service_name) )
 
-    # Run a cleanup operation first. This clears out any old state,
-    # for example fail counts which would have tuck around. This is
-    # critical as fail counts can leave things in a permanently bad
-    # state. FIXME However, in a sense this can also be bad as memory
-    # of the issue is lost. Eventually it would be nice to recover
-    # from errors more gracefully.
-    retcode = retcode = node_ssh(cc, 0,
-                                 'sudo', 'crm', 'resource', 'cleanup', service_name, '&>', '/dev/null'
-                                 )
-    # Ignore errors here since it can fail due to not having any stale state
-
-    retcode = node_ssh(cc, 0,
-                       'sudo', 'crm', 'configure', 'primitive',
-                       service_name, 'ocf:sirikata:anything',
-                       'params',
-                       'create_pidfile=no',
-                       'pidfile=' + pidfile,
-                       'binfile=' + service_binary,
-                       'user=' + user,
-                       'cwd=' + cwd,
-                       'cmdline_options="' + service_args + '"',
-                       *opt_args
-                       )
+    daemon_cmd = ['start-stop-daemon', '--start',
+                  '--pidfile', pidfile,
+                  '--user', user,
+                  '--chdir', cwd,
+                  # '--test'
+                  ]
+    if force_daemonize:
+        daemon_cmd += ['--background', '--make-pidfile']
+    daemon_cmd += ['--exec', service_binary,
+                   '--'] + [arg.replace('PIDFILE', pidfile).replace('FQDN', target_node_hostname) for arg in service_cmd[1:]]
+    retcode = node_ssh(cc, target_node_inst.id,
+                       *daemon_cmd)
     if retcode != 0:
         print "Failed to add cluster service"
         return retcode
 
-    # Add a location constraint. Nothing gets instantiated until here
-    # because we're set in opt-in mode. Without the location
-    # constraint, everything gets -INF score.
-    if target_node == 'any': # allow it to run on any node
-        retcode = node_ssh(cc, 0,
-                           'sudo', 'crm', 'configure', 'location',
-                           service_name + '-location', service_name,
-                           'rule', '50:', 'defined', '\#uname' # should be defined everywhere
-                           )
-    else: # force to a particular node
-        retcode = node_ssh(cc, 0,
-                           'sudo', 'crm', 'configure', 'location',
-                           service_name + '-location', service_name,
-                           '100:', target_node_pacemaker_id # value is arbitrary != -INF
-                           )
-
-    if retcode != 0:
-        print "Failed to add cluster service location constraint"
+    # Save a record of this service so we can find it again when we need to stop it.
+    cc.state['services'][service_name] = {
+        'node' : target_node_inst.id,
+        'binary' : service_binary
+        }
+    cc.save()
 
     return retcode
 
 def service_status(*args, **kwargs):
-    """ec2 service status cluster_name_or_config service_id [--pem=/path/to/pem.key]
+    """adhoc service status cluster_name_or_config service_id [--pem=/path/to/pem.key]
 
     Check the status of a service from the cluster. Returns 0 if it is
     active and running, non-zero otherwise.
     """
 
     name_or_config, service_name = arguments.parse_or_die(service_status, [object, str], *args)
-    pemfile = os.path.expanduser(config.kwarg_or_get('pem', kwargs, 'SIRIKATA_CLUSTER_PEMFILE'))
 
     cname, cc = name_and_config(name_or_config)
 
-    # Unfortunately, the command line tools from pacemaker kind of
-    # suck since they won't directly give us the info we want. A
-    # service can be started, crash, and then monitoring will mark it
-    # as failed. If we have failover, it'll start up again, which is
-    # fine, but if it consistently fails or we don't have failover on
-    # (because we want to use this method to monitor the health of the
-    # process), it still reports the service as running on a node when
-    # queried about the specific service. If we ask about *all*
-    # services, it still says its started, but adds FAILED to the
-    # output. And none of this can be properly queried through command
-    # exit codes.
-    #
-    # So, to check if a service is running we a) ask for the status of
-    # all services and b) filter to the one line of the output we
-    # need, then c) check for 'Stopped' or 'FAILED' in the output to
-    # indicate something has gone wrong.
-    retcode = node_ssh(cc, 0,
-                       'sudo', 'crm', 'resource',
-                       'status', # all statuses
-                       '|', 'grep', '^ ' + service_name, # filter to service, which should appear at beginning of the line
-                       '|', 'grep', '-q', '-e', 'Stopped', '-e', 'FAILED'
-                       )
-    # Since we checked for *failure*, we actually need to invert the result
-    if retcode == 0: # grep found stopped or failed
+    if service_name not in cc.state['services']:
+        print "Couldn't find record of service '%s'" % (service_name)
         return 1
-    return 0
+
+    pidfile = os.path.join(cc.workspace_path(), 'sirikata_%s.pid' % (service_name) )
+
+    # Check if the process can respond to signals, i.e. just if it is alive
+    retcode = node_ssh(cc, cc.state['services'][service_name]['node'],
+                       '/bin/bash', '-c',
+                       "kill -0 `grep -o '[0-9]*' %s`" % (pidfile)
+                       )
+
+    return retcode
+
+
 
 def remove_service(*args, **kwargs):
-    """ec2 remove service cluster_name_or_config service_id [--pem=/path/to/pem.key]
+    """adhoc remove service cluster_name_or_config service_id [--pem=/path/to/pem.key]
 
     Remove a service from the cluster.
     """
 
     name_or_config, service_name = arguments.parse_or_die(remove_service, [object, str], *args)
-    pemfile = os.path.expanduser(config.kwarg_or_get('pem', kwargs, 'SIRIKATA_CLUSTER_PEMFILE'))
 
     cname, cc = name_and_config(name_or_config)
 
-    # Stop the service first
-    retries, retcode = 3, 1
-    while retcode != 0 and retries > 0:
-        retcode = node_ssh(cc, 0,
-                           'sudo', 'crm', 'resource',
-                           'stop', service_name
-                           )
-        retries -= 1
+    if service_name not in cc.state['services']:
+        print "Couldn't find record of service '%s'" % (service_name)
+        return 1
 
-    # Need to give it some time to shut down the process
-    time.sleep(10)
+    pidfile = os.path.join(cc.workspace_path(), 'sirikata_%s.pid' % (service_name) )
 
-    if retcode != 0:
-        print "Failed to stop process, but still trying to remove the service..."
-
-    # Remove location constraint
-    retries, retcode = 3, 1
-    while retcode != 0 and retries > 0:
-        retcode = node_ssh(cc, 0,
-                           'sudo', 'crm', 'configure',
-                           'delete', service_name + '-location'
-                           )
-        retries -= 1
-
-    if retcode != 0:
-        print "Failed to remove location constraint, but still trying to remove the service..."
-
-    retries, retcode = 3, 1
-    while retcode != 0 and retries > 0:
-        retcode = node_ssh(cc, 0,
-                           'sudo', 'crm', 'configure',
-                           'delete', service_name
-                           )
-        retries -= 1
+    retcode = node_ssh(cc, cc.state['services'][service_name]['node'],
+                       'start-stop-daemon', '--stop',
+                       '--retry', 'TERM/6/KILL/5',
+                       '--pidfile', pidfile,
+                       # oknodo allows a successful return if the
+                       # process couldn't actually be found, meaning
+                       # it probably crashed
+                       '--oknodo'
+#                       '--test',
+                       )
 
     if retcode != 0:
         print "Failed to remove service."
+        return retcode
+
+    # Destroy the record of the service.
+    # Save a record of this service so we can find it again when we need to stop it.
+    del cc.state['services'][service_name]
+    cc.save()
+
     return retcode
+
 
 
 def set_node_type(*args, **kwargs):
@@ -933,6 +795,7 @@ def terminate(*args, **kwargs):
     if 'node-types' in cc.state: del cc.state['node-types']
     if 'capabilities' in cc.state: del cc.state['capabilities']
     del cc.state['instances']
+    del cc.state['instance_props']
     if 'reservation' in cc.state:
         del cc.state['reservation']
     if 'spot' in cc.state:

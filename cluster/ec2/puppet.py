@@ -21,8 +21,7 @@ def master_config(*args, **kwargs):
 
     Configure (or reconfigure) a local puppet master based on the data
     generated so far. This can be used for the initial setup of the
-    Puppet master or to updated it based on changes from the cluster
-    (e.g. new generated corosync files).
+    Puppet master or to updated it based on changes from the cluster.
 
     The commands this executes will require sudo, but it will be
     invoked for you -- don't run this command under sudo.
