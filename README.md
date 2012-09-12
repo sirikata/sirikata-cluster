@@ -61,9 +61,19 @@ much like AWS scripts. A few values are required for EC2 API access:
 Puppet Master Configuration
 ---------------------------
 
-You'll need to do some Puppet master node setup. The easiest way is to
-work against a local puppet master using the default layout, in which
-case you can just:
+You'll need to do some Puppet master node setup. First you'll want to
+setup some configuration information. Currently this is just a URL
+prefix for the archive of Sirikata binaries to be installed. Instead
+of serving the data through Puppet (which is slow and limits you to
+serving from the master) you can specify any URL the cURL will
+handle. Copy cluster/data/puppet/manifests/config.example.pp to
+config.pp and edit it appropriately. You should make sure you have
+data uploaded there (see the section on generating Sirikata archives)
+before booting up nodes.
+
+Once you have the configuration in place, the easiest way to setup the
+puppet master is to work against a local puppet master using the
+default layout, in which case you can just:
 
     ./sirikata-cluster.py puppet master config --yes
 
@@ -105,16 +115,12 @@ top level, e.g.,
     # Note that we list directories explicitly so we can skip include/
     > tar -cjvf sirikata.tar.bz2 ./bin ./lib ./share
 
-Then place this in your puppet files directory under
-home/ubuntu/sirikata.tar.bz2. On a default puppet install that will be
-at /etc/puppet/modules/sirikata/files/home/ubuntu/sirikata.tar.bz2, e.g.,
+Then put the package in place to match the URL you specified in the
+Puppet configuration step so the puppet slaves can download it.
 
-    > sudo mkdir -p /etc/puppet/modules/sirikata/files/home/ubuntu
-    > sudo cp sirikata.tar.bz2 /etc/puppet/modules/sirikata/files/home/ubuntu/
-
-That's it. If you need to update this file for a running cluster, copy
-a new one into place and force all the puppets on your cluster to
-restart so they pick up the change:
+That's it. Updating a package requires deleting the old package from
+the nodes (e.g. using a cluster ssh command), then restarting the
+puppets so they pick up the changes:
 
     ./sirikata-cluster.py puppet slaves restart
 
@@ -173,7 +179,7 @@ Or, if you are using spot instances:
 
     ./sirikata-cluster.py ec2 nodes request spot instances mycluster 0.01
     # Wait for request to be fulfilled
-    ./sirikata-cluster.py ec2 nodes import mycluster 
+    ./sirikata-cluster.py ec2 nodes import mycluster
     # Or, to manually add instances:
     # ./sirikata-cluster.py ec2 nodes import mycluster i-4567899 i-9876544
 

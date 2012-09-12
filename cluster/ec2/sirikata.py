@@ -5,7 +5,7 @@ import cluster.util.data as data
 import cluster.util.arguments as arguments
 import cluster.util.sirikata as util_sirikata
 import os, subprocess
-import puppet
+import puppet, nodes
 
 def sync_sirikata(*args, **kwargs):
     """ec2 sync sirikata /path/to/installed/sirikata [--puppet-path=/etc/puppet] [--notify-puppets=cluster_name_or_config]
@@ -47,4 +47,6 @@ def sync_sirikata(*args, **kwargs):
         slaves_restart_kwargs = {}
         if pemfile is not None: slaves_restart_kwargs['pem'] = pemfile
         # notify_puppets == cluster name
+        # Nuke old tar.bz2's so new ones will be downloaded
+        nodes.ssh(notify_puppets, 'rm', '-f', 'sirikata.tar.bz2', **slaves_restart_kwargs)
         puppet.slaves_restart(notify_puppets, **slaves_restart_kwargs)

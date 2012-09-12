@@ -1,8 +1,10 @@
+import 'config.pp'
+
 # Node definitions. We specify the default as just a regular sirikata
 # node. Combinations are provided to be inherited from. These should
 # probably only be Sirikata + one other service.
 node default {
-  include sirikata
+  class { 'sirikata': archive_url => $sirikata_archive_url }
   include sirikata_local_cdn
 }
 

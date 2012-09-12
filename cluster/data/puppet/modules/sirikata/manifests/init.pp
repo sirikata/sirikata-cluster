@@ -1,4 +1,4 @@
-class sirikata {
+class sirikata($archive_url, $archive_name = 'sirikata.tar.bz2') {
 
   include ntp
 
@@ -33,25 +33,25 @@ class sirikata {
   #  Sirikata binaries yet. You need to make sure you have an
   #  installed-formatted (i.e. bin/, lib/, share/ dirs) under puppet's
   #  files/home/ubuntu/sirikata.
-  file { '/home/ubuntu/sirikata.tar.bz2':
-    ensure => file,
-    owner => 'ubuntu',
-    group => 'ubuntu',
-    source  => "puppet:///modules/sirikata/home/ubuntu/sirikata.tar.bz2",
-  }
   file { '/home/ubuntu/sirikata':
     ensure => directory,
     owner => 'ubuntu',
     group => 'ubuntu',
   }
+  exec { 'Download Sirikata Binaries':
+    command => "/usr/bin/curl -o ${archive_name} ${archive_url}${archive_name}",
+    cwd => '/home/ubuntu',
+    user => 'ubuntu',
+    unless => "/usr/bin/test -f /home/ubuntu/${archive_name}",
+  }
   exec { 'Sirikata Binaries':
-    command => 'tar -xvf ../sirikata.tar.bz2',
+    command => "tar -xf ../${archive_name}",
     cwd => '/home/ubuntu/sirikata',
     path => [ '/bin', '/usr/bin' ],
     user => 'ubuntu',
     refreshonly => true,
-    subscribe => File['/home/ubuntu/sirikata.tar.bz2'],
-    require => File['/home/ubuntu/sirikata.tar.bz2', '/home/ubuntu/sirikata'],
+    subscribe => Exec['Download Sirikata Binaries'],
+    require => [ Exec['Download Sirikata Binaries'], File['/home/ubuntu/sirikata'] ],
   }
 
   # COROSYNC
