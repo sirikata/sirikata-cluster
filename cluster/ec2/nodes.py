@@ -7,6 +7,7 @@ import cluster.util.arguments as arguments
 from boto.ec2.connection import EC2Connection
 import json, os, time, subprocess
 import re
+import random
 
 def ssh_escape(x):
     '''Escaping rules are confusing... This escapes an argument enough to get it through ssh'''
@@ -140,9 +141,16 @@ def boot(*args, **kwargs):
     user_data = data.load('ec2-user-data', 'node-setup.sh')
     user_data = user_data.replace('{{{PUPPET_MASTER}}}', cc.puppet_master)
 
-    # Now create the nodes
+    # Unlike spot instances, where we can easily request that any
+    # availability zone be used by that all be in the same AZ, here we
+    # have to specify an AZ directly. We just choose one randomly for now...
     conn = EC2Connection(config.AWS_ACCESS_KEY_ID, config.AWS_SECRET_ACCESS_KEY)
+    zones = conn.get_all_zones()
+    zone = random.choice(zones).name
+
+    # Now create the nodes
     reservation = conn.run_instances(cc.ami,
+                                     placement=zone,
                                      min_count=cc.size, max_count=cc.size,
                                      key_name=cc.keypair,
                                      instance_type=cc.instance_type,
@@ -199,6 +207,11 @@ def request_spot_instances(*args, **kwargs):
                                           # only launch if all can be
                                           # satisfied
                                           launch_group=name,
+                                          # availability zone group
+                                          # lets use specify a group
+                                          # name such that we'll group
+                                          # all instances together
+                                          availability_zone_group=(name+'_azg'),
                                           count=cc.size,
                                           key_name=cc.keypair,
                                           instance_type=cc.instance_type,
