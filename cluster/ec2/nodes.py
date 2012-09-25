@@ -161,18 +161,27 @@ def boot(*args, **kwargs):
     # Save reservation, instance info
     cc.state['reservation'] = reservation.id
     cc.state['instances'] = [inst.id for inst in reservation.instances]
-    # Cache some information about the instances which shouldn't change
-    cc.state['instance_props'] = dict(
-        [
-            (inst.id, {
-                    'id' : inst.id,
-                    'ip' : inst.ip_address,
-                    'hostname' : inst.dns_name,
-                    'private_ip' : inst.private_ip_address,
-                    'private_hostname' : inst.private_dns_name,
-                    }) for inst in reservation.instances])
     cc.save()
-
+    # Cache some information about the instances which shouldn't
+    # change. However, this can take some time to come up properly, so
+    # we may need to poll a few times before we get the right info
+    print "Collecting node information..."
+    while True:
+        new_instances = get_all_instances(cc, conn)
+        if any([inst.ip_address is None or inst.dns_name is None or inst.private_ip_address is None or inst.private_dns_name is None for inst in new_instances.values()]):
+            time.sleep(5)
+            continue
+        cc.state['instance_props'] = dict(
+            [
+                (inst.id, {
+                        'id' : inst.id,
+                        'ip' : inst.ip_address,
+                        'hostname' : inst.dns_name,
+                        'private_ip' : inst.private_ip_address,
+                        'private_hostname' : inst.private_dns_name,
+                        }) for inst in new_instances.values()])
+        break
+    cc.save()
     return name_and_boot_nodes(cc, conn, pemfile, timeout)
 
 def request_spot_instances(*args, **kwargs):
