@@ -323,7 +323,7 @@ def wait_nodes_ready(*args, **kwargs):
     back to a good state.
     '''
 
-    name_or_config = arguments.parse_or_die(wait_pingable, [object], *args)
+    name_or_config = arguments.parse_or_die(wait_nodes_ready, [object], *args)
     timeout = int(config.kwarg_or_get('timeout', kwargs, 'SIRIKATA_PING_WAIT_TIMEOUT', default=300))
     pemfile = os.path.expanduser(config.kwarg_or_get('pem', kwargs, 'SIRIKATA_CLUSTER_PEMFILE'))
 
@@ -575,7 +575,7 @@ def ssh(*args, **kwargs):
 
 
 def sync_files(*args, **kwargs):
-    """adhoc sync files cluster_name_or_config idx_or_name_or_node target local_or_remote:/path local_or_remote:/path [--pem=/path/to/key.pem]
+    """ec2 sync files cluster_name_or_config idx_or_name_or_node target local_or_remote:/path local_or_remote:/path [--pem=/path/to/key.pem]
 
     Synchronize files or directories between a the local host and a cluster node.
     """
@@ -617,7 +617,7 @@ def sync_files(*args, **kwargs):
 
 
 def add_service(*args, **kwargs):
-    """adhoc add service cluster_name_or_config service_id target_node|any [--user=user] [--cwd=/path/to/execute] [--] command to run
+    """ec2 add service cluster_name_or_config service_id target_node|any [--user=user] [--cwd=/path/to/execute] [--] command to run
 
     Add a service to run on the cluster. The service needs to be
     assigned a unique id (a string) and takes the form of a command
@@ -697,7 +697,7 @@ def add_service(*args, **kwargs):
     return retcode
 
 def service_status(*args, **kwargs):
-    """adhoc service status cluster_name_or_config service_id [--pem=/path/to/pem.key]
+    """ec2 service status cluster_name_or_config service_id [--pem=/path/to/pem.key]
 
     Check the status of a service from the cluster. Returns 0 if it is
     active and running, non-zero otherwise.
@@ -722,9 +722,25 @@ def service_status(*args, **kwargs):
     return retcode
 
 
+def list_services(*args, **kwargs):
+    """ec2 list services cluster_name_or_config [--pem=/path/to/pem.key]
+
+    Check the status of a service from the cluster. Returns 0 if it is
+    active and running, non-zero otherwise.
+    """
+
+    name_or_config = arguments.parse_or_die(service_status, [object], *args)
+
+    cname, cc = name_and_config(name_or_config)
+
+    for sidx,service_name in enumerate(cc.state['services']):
+        print "[%d] %s" % (sidx, service_name)
+
+    return 0
+
 
 def remove_service(*args, **kwargs):
-    """adhoc remove service cluster_name_or_config service_id [--pem=/path/to/pem.key]
+    """ec2 remove service cluster_name_or_config service_id [--pem=/path/to/pem.key]
 
     Remove a service from the cluster.
     """
