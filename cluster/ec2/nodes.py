@@ -745,9 +745,18 @@ def remove_service(*args, **kwargs):
     Remove a service from the cluster.
     """
 
-    name_or_config, service_name = arguments.parse_or_die(remove_service, [object, str], *args)
+    name_or_config, service_name_or_idx = arguments.parse_or_die(remove_service, [object, object], *args)
 
     cname, cc = name_and_config(name_or_config)
+
+    try:
+        idx = int(service_name_or_idx)
+        if idx >= len(cc.state['services']):
+            print "Requested service index out of range"
+            return 1
+        service_name = cc.state['services'].keys()[idx]
+    except:
+        service_name = service_name_or_idx
 
     if service_name not in cc.state['services']:
         print "Couldn't find record of service '%s'" % (service_name)
