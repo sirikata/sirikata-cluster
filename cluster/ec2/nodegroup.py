@@ -12,6 +12,7 @@ class NodeGroup(cluster.util.NodeGroup):
         ('ec2 nodes boot', nodes.boot),
         ('ec2 nodes request spot instances', nodes.request_spot_instances),
         ('ec2 nodes import', nodes.import_nodes),
+        ('ec2 nodes wait ready', nodes.wait_nodes_ready),
         ('ec2 members info', nodes.members_info),
         ('ec2 node ssh', nodes.node_ssh),
         ('ec2 ssh', nodes.ssh),

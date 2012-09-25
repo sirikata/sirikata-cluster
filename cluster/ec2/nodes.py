@@ -306,21 +306,39 @@ def name_and_boot_nodes(cc, conn, pemfile, timeout):
         conn.create_tags([inst_id], {"Name": instance_name(cc.name, idx)})
 
     if timeout > 0:
-        pem_kwargs = {}
-        if pemfile is not None: pem_kwargs['pem'] = pemfile
+        wait_kwargs = { 'wait-timeout' : timeout }
+        if pemfile is not None: wait_kwargs['pem'] = pemfile
 
-        print "Waiting for nodes to become pingable..."
-        pingable = wait_pingable(cc, timeout=timeout)
-        if pingable != 0: return pingable
-        # Give a bit more time for the nodes to become ready, pinging
-        # may happen before all services are finished starting
-        print "Sleeping to allow nodes to finish booting"
-        time.sleep(15)
-        print "Waiting for initial services and Sirikata binaries to install"
-        ready = wait_ready(cc, '/home/ubuntu/ready/sirikata', timeout=timeout, **pem_kwargs)
-        return ready
+        return wait_nodes_ready(cc, **wait_kwargs)
 
     return 0
+
+def wait_nodes_ready(*args, **kwargs):
+    '''ec2 nodes wait ready name_or_config [--wait-timeout=300 --pem=/path/to/key.pem]
+
+    Wait for nodes to finish booting and become fully ready, i.e. all
+    packages to be installed have finished installing. Normally this
+    will be invoked during boot or import, but can be useful if those
+    run into a problem and you want to make sure all nodes have gotten
+    back to a good state.
+    '''
+
+    name_or_config = arguments.parse_or_die(wait_pingable, [object], *args)
+    timeout = int(config.kwarg_or_get('timeout', kwargs, 'SIRIKATA_PING_WAIT_TIMEOUT', default=300))
+    pemfile = os.path.expanduser(config.kwarg_or_get('pem', kwargs, 'SIRIKATA_CLUSTER_PEMFILE'))
+
+    name, cc = name_and_config(name_or_config)
+
+    print "Waiting for nodes to become pingable..."
+    pingable = wait_pingable(cc, timeout=timeout)
+    if pingable != 0: return pingable
+    # Give a bit more time for the nodes to become ready, pinging
+    # may happen before all services are finished starting
+    print "Sleeping to allow nodes to finish booting"
+    time.sleep(15)
+    print "Waiting for initial services and Sirikata binaries to install"
+    ready = wait_ready(cc, '/home/ubuntu/ready/sirikata', timeout=timeout, pem=pemfile)
+    return ready
 
 
 def get_all_instances(cc, conn):
