@@ -786,6 +786,28 @@ def remove_service(*args, **kwargs):
 
     return retcode
 
+def remove_all_services(*args, **kwargs):
+    """ec2 remove all services cluster_name_or_config [--pem=/path/to/pem.key]
+
+    Remove all active services from the cluster.
+    """
+
+    name_or_config = arguments.parse_or_die(remove_all_services, [object], *args)
+
+    cname, cc = name_and_config(name_or_config)
+
+    retcode = 0
+    for service_name in list(cc.state['services']):
+        one_retcode = remove_service(cc, service_name)
+        # Even if this didn't succeed, we'll try to get through
+        # everything and remove it since that's the intent. We will,
+        # however, make sure to return a bad return code and warn the
+        # user.
+        if one_retcode != 0:
+            print "Removal of service %s failed" % (service_name)
+            retcode = one_retcode
+
+    return retcode
 
 
 def set_node_type(*args, **kwargs):

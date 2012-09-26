@@ -20,6 +20,7 @@ class NodeGroup(cluster.util.NodeGroup):
         ('ec2 service status', nodes.service_status),
         ('ec2 list services', nodes.list_services),
         ('ec2 remove service', nodes.remove_service),
+        ('ec2 remove all services', nodes.remove_all_services),
         ('ec2 node set type', nodes.set_node_type),
         ('ec2 nodes terminate', nodes.terminate),
         ('ec2 destroy', nodes.destroy),
